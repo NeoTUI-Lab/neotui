@@ -1,0 +1,43 @@
+# Rust build artifacts
+target/
+**/target/
+**/*.rs.bk
+
+# Cargo
+Cargo.lock
+**/Cargo.lock
+**/.cargo-lock
+**/.rustc_info.json
+**/.fingerprint/
+
+# Python
+.venv/
+**/.venv/
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*.pyd
+*.so
+*.egg-info/
+dist/
+build/
+
+# PyInstaller / maturin
+*.spec
+*.dylib
+*.dll
+*.pdb
+*.log
+*.whl
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# IDEs
+.idea/
+*.iml
+
+# Outros
+.DS_Store
+*.swp
