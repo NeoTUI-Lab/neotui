@@ -1,0 +1,6 @@
+[workspace]
+members = [
+    "neotui-core",
+    "neotui-py",
+    "neotui-gui"      
+]
