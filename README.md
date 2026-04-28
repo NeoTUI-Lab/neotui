@@ -2,6 +2,10 @@
 
 Documento de arquitetura e decisão de stack para o MVP.
 
+## Documentacao
+
+- Requisitos funcionais e nao funcionais: `docs/requirements.md`
+
 ## 0. Design space e hipóteses antes da stack
 
 O briefing pede explicitamente uma decisão "zero-anchor": comparar alternativas antes de escolher tecnologia, priorizando terminal real via TTY/SSH, janela desktop, teclado, mouse, scroll, resize, foco, atalhos, temas, extensibilidade, DSL/API e previsibilidade operacional.
