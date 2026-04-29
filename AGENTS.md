@@ -2,10 +2,10 @@
 
 ## Last Executed Task
 
-**TASK-000.2.2** - Criar script de check
+**TASK-000.3.1** - Criar workflow de CI básico
 - Status: Completed
 - Date: 2026-04-28
-- Summary: Created check.ps1 script for DSL file validation with basic extension checking.
+- Summary: Created GitHub Actions CI workflow with formatting check, clippy, tests, and build steps.
 
 ---
 
