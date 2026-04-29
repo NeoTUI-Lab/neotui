@@ -2,10 +2,10 @@
 
 ## Last Executed Task
 
-**TASK-000.1.3** - Criar exemplos básicos (hello.toml)
+**TASK-000.2.1** - Criar scripts de desenvolvimento padronizados
 - Status: Completed
 - Date: 2026-04-28
-- Summary: Created examples/hello.toml with minimal DSL structure following the schema defined in AGENTS.md.
+- Summary: Created PowerShell scripts for build, test, fmt, lint, and run-example in scripts/ directory.
 
 ---
 
