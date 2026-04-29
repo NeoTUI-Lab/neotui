@@ -2,10 +2,10 @@
 
 ## Last Executed Task
 
-**TASK-001.1.2** - Implementar panic hook para restauração segura
+**TASK-001.2.1** - Criar modelo de eventos normalizado
 - Status: Completed
 - Date: 2026-04-28
-- Summary: Created runtime/panic module with panic hook that restores terminal state before aborting on panic.
+- Summary: Expanded event.rs with KeyEvent, MouseEvent, ScrollEvent, ComponentId types and Event/EventResult enums matching AGENTS.md spec.
 
 ---
 
