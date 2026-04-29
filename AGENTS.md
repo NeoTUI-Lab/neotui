@@ -1,5 +1,14 @@
 # AGENTS.md — NeoTUI
 
+## Last Executed Task
+
+**TASK-000.1.1** - Organizar estrutura de diretórios do monorepo
+- Status: Completed
+- Date: 2026-04-28
+- Summary: Created workspace structure with crates/, python/, examples/, docs/, scripts/, and .github/ directories. Added neotui-core, neotui-cli, neotui-gui crates and neotui-py Python package with basic stub files.
+
+---
+
 ## 1. Mission
 
 NeoTUI is a modern reactive, declarative and extensible TUI framework.
@@ -700,6 +709,7 @@ When executing a task, follow this sequence:
 7. Run formatting.
 8. Update docs/examples if behavior changed.
 9. Summarize what changed and what remains.
+10. **Record the last executed task in this file** by updating the `LAST_EXECUTED_TASK` field below.
 
 Do not rewrite unrelated files.
 
