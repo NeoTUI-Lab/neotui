@@ -2,10 +2,10 @@
 
 ## Last Executed Task
 
-**TASK-000.3.1** - Criar workflow de CI básico
+**TASK-001.1.1** - Criar módulo de sessão de terminal
 - Status: Completed
 - Date: 2026-04-28
-- Summary: Created GitHub Actions CI workflow with formatting check, clippy, tests, and build steps.
+- Summary: Created runtime/terminal module with TerminalSession struct for managing raw mode, alternate screen, and safe teardown using crossterm.
 
 ---
 
