@@ -2,10 +2,10 @@
 
 ## Last Executed Task
 
-**TASK-001.1.1** - Criar módulo de sessão de terminal
+**TASK-001.1.2** - Implementar panic hook para restauração segura
 - Status: Completed
 - Date: 2026-04-28
-- Summary: Created runtime/terminal module with TerminalSession struct for managing raw mode, alternate screen, and safe teardown using crossterm.
+- Summary: Created runtime/panic module with panic hook that restores terminal state before aborting on panic.
 
 ---
 
