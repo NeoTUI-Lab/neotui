@@ -2,10 +2,10 @@
 
 ## Last Executed Task
 
-**TASK-000.2.1** - Criar scripts de desenvolvimento padronizados
+**TASK-000.2.2** - Criar script de check
 - Status: Completed
 - Date: 2026-04-28
-- Summary: Created PowerShell scripts for build, test, fmt, lint, and run-example in scripts/ directory.
+- Summary: Created check.ps1 script for DSL file validation with basic extension checking.
 
 ---
 
