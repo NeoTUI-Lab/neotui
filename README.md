@@ -5,6 +5,7 @@ Documento de arquitetura e decisão de stack para o MVP.
 ## Documentacao
 
 - Requisitos funcionais e nao funcionais: `docs/requirements.md`
+- Roadmap executavel (epicos, stories e tasks): `docs/roadmap.md`
 
 ## 0. Design space e hipóteses antes da stack
 
