@@ -1,7 +1,7 @@
 [workspace]
+resolver = "2"
 members = [
     "crates/neotui-core",
     "crates/neotui-cli",
     "crates/neotui-gui",
-    "python/neotui-py",
 ]

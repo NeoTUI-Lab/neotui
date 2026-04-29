@@ -2,10 +2,77 @@
 
 ## Last Executed Task
 
-**TASK-000.1.1** - Organizar estrutura de diretórios do monorepo
+**TASK-000.1.3** - Criar exemplos básicos (hello.toml)
 - Status: Completed
 - Date: 2026-04-28
-- Summary: Created workspace structure with crates/, python/, examples/, docs/, scripts/, and .github/ directories. Added neotui-core, neotui-cli, neotui-gui crates and neotui-py Python package with basic stub files.
+- Summary: Created examples/hello.toml with minimal DSL structure following the schema defined in AGENTS.md.
+
+---
+
+## Next Task
+
+**TASK-000.1.2** - Criar `Cargo.toml` workspace na raiz
+- Status: Completed
+- Priority: P0
+- Depends on: TASK-000.1.1
+- Date: 2026-04-28
+- Summary: Root `Cargo.toml` configured with `resolver = "2"` and workspace members (`crates/neotui-core`, `crates/neotui-cli`, `crates/neotui-gui`). Rust toolchain installed via rustup; `rustc --version`, `cargo --version` and `cargo metadata --format-version 1 --no-deps` succeeded.
+
+### Objective
+
+Configure the root Rust workspace so all MVP crates are managed from a single `Cargo.toml`.
+
+### Scope
+
+- Create/update root `Cargo.toml` with:
+  - `[workspace]`
+  - `resolver = "2"`
+  - members:
+    - `crates/neotui-core`
+    - `crates/neotui-cli`
+    - `crates/neotui-gui`
+
+### Acceptance Criteria
+
+1. `Cargo.toml` exists at repository root with valid workspace syntax.
+2. `cargo metadata` runs successfully from repository root.
+3. Workspace members resolve without path errors.
+4. No GUI/Python dependency is required by workspace root itself.
+
+### Out of Scope
+
+- Implementing runtime features.
+- Adding non-essential dependencies.
+- Restructuring directories beyond workspace membership.
+
+### Environment Recovery (Windows) (Reference)
+
+Run these commands in PowerShell to install Rust/Cargo and revalidate the task:
+
+```powershell
+# 1) Install Rust toolchain (includes cargo)
+winget install --id Rustlang.Rustup -e
+
+# 2) Restart terminal (or open a new PowerShell session), then verify
+rustc --version
+cargo --version
+
+# 3) Revalidate workspace from repository root
+cd C:\dev\neotui
+cargo metadata --format-version 1 --no-deps
+```
+
+If `winget` is unavailable, install from:
+
+- https://rustup.rs/
+
+Then run:
+
+```powershell
+rustup default stable
+cd C:\dev\neotui
+cargo metadata --format-version 1 --no-deps
+```
 
 ---
 
