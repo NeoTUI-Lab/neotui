@@ -26,8 +26,13 @@ fn panic_handler(info: &PanicInfo) {
 
     eprintln!();
     eprintln!("=== NeoTUI Panic ===");
-    eprintln!("Location: {}:{}:{}", location.file(), location.line(), location.column());
-    
+    eprintln!(
+        "Location: {}:{}:{}",
+        location.file(),
+        location.line(),
+        location.column()
+    );
+
     if let Some(msg) = info.payload().downcast_ref::<&str>() {
         eprintln!("Message: {}", msg);
     } else if let Some(msg) = info.payload().downcast_ref::<String>() {
@@ -35,7 +40,7 @@ fn panic_handler(info: &PanicInfo) {
     } else {
         eprintln!("Message: <unknown>");
     }
-    
+
     eprintln!("====================");
     eprintln!();
 }
@@ -47,14 +52,10 @@ fn restore_terminal() -> std::io::Result<()> {
         execute,
         terminal::{disable_raw_mode, LeaveAlternateScreen},
     };
-    
-    execute!(
-        std::io::stdout(),
-        LeaveAlternateScreen,
-        DisableMouseCapture
-    )?;
+
+    execute!(std::io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
     disable_raw_mode()?;
-    
+
     Ok(())
 }
 

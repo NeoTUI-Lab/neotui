@@ -26,11 +26,7 @@ impl TerminalSession {
         }
 
         enable_raw_mode()?;
-        execute!(
-            io::stdout(),
-            EnterAlternateScreen,
-            EnableMouseCapture
-        )?;
+        execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
 
         self.is_active = true;
         Ok(())
@@ -42,11 +38,7 @@ impl TerminalSession {
             return Ok(());
         }
 
-        execute!(
-            io::stdout(),
-            LeaveAlternateScreen,
-            DisableMouseCapture
-        )?;
+        execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
         disable_raw_mode()?;
 
         self.is_active = false;

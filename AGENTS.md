@@ -2,10 +2,10 @@
 
 ## Last Executed Task
 
-**TASK-001.2.1** - Criar modelo de eventos normalizado
+**TASK-001.3.1** - Criar `AppRuntime` com event loop minimo
 - Status: Completed
-- Date: 2026-04-28
-- Summary: Expanded event.rs with KeyEvent, MouseEvent, ScrollEvent, ComponentId types and Event/EventResult enums matching AGENTS.md spec.
+- Date: 2026-05-04
+- Summary: Added `runtime/app.rs` with a minimal `AppRuntime`, a testable `EventSource`, optional tick support, runtime shortcut normalization (`Ctrl+Q`, `F1`) and unit coverage for quit, help and scroll promotion.
 
 ---
 
@@ -1101,4 +1101,3 @@ Every change should move the project closer to:
 neotui run examples/dashboard.toml
 neotui run examples/dashboard.toml --gui
 ```
-

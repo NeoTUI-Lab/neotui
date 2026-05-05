@@ -99,7 +99,10 @@ mod tests {
     fn test_key_event_creation() {
         let key = KeyEvent {
             code: KeyCode::Char('x'),
-            modifiers: KeyModifiers { ctrl: true, ..Default::default() },
+            modifiers: KeyModifiers {
+                ctrl: true,
+                ..Default::default()
+            },
         };
         assert_eq!(key.code, KeyCode::Char('x'));
         assert!(key.modifiers.ctrl);
@@ -111,7 +114,10 @@ mod tests {
             Event::QuitRequested,
             Event::HelpRequested,
             Event::Tick,
-            Event::Resize { width: 80, height: 24 },
+            Event::Resize {
+                width: 80,
+                height: 24,
+            },
         ];
         assert_eq!(events.len(), 4);
     }
@@ -126,4 +132,3 @@ mod tests {
         assert_eq!(results.len(), 3);
     }
 }
-
