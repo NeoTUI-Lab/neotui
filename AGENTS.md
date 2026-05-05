@@ -2,10 +2,10 @@
 
 ## Last Executed Task
 
-**TASK-001.3.1** - Criar `AppRuntime` com event loop minimo
+**TASK-002.2.2** - Adicionar alinhamento horizontal ao desenho de texto
 - Status: Completed
 - Date: 2026-05-04
-- Summary: Added `runtime/app.rs` with a minimal `AppRuntime`, a testable `EventSource`, optional tick support, runtime shortcut normalization (`Ctrl+Q`, `F1`) and unit coverage for quit, help and scroll promotion.
+- Summary: Added `TextAlign` and `ScreenBuffer::draw_text_aligned()` for left/center/right text placement within a width, with unit coverage for alignment and clipping behavior.
 
 ---
 

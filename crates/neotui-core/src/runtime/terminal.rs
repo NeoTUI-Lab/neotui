@@ -8,6 +8,13 @@ use crossterm::{
 };
 use std::io::{self, Write};
 
+/// Lifecycle contract for terminal setup and teardown.
+pub trait TerminalLifecycle {
+    fn enter(&mut self) -> io::Result<()>;
+    fn exit(&mut self) -> io::Result<()>;
+    fn is_active(&self) -> bool;
+}
+
 /// Represents an active terminal session
 pub struct TerminalSession {
     is_active: bool,
@@ -48,6 +55,20 @@ impl TerminalSession {
     /// Check if session is active
     pub fn is_active(&self) -> bool {
         self.is_active
+    }
+}
+
+impl TerminalLifecycle for TerminalSession {
+    fn enter(&mut self) -> io::Result<()> {
+        TerminalSession::enter(self)
+    }
+
+    fn exit(&mut self) -> io::Result<()> {
+        TerminalSession::exit(self)
+    }
+
+    fn is_active(&self) -> bool {
+        TerminalSession::is_active(self)
     }
 }
 

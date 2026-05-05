@@ -84,11 +84,56 @@ pub enum Event {
     HelpRequested,
 }
 
+impl Event {
+    pub fn requests_render(&self) -> bool {
+        matches!(
+            self,
+            Event::Resize { .. }
+                | Event::FocusGained(_)
+                | Event::FocusLost(_)
+                | Event::HelpRequested
+        )
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum EventResult {
     Ignored,
     Consumed,
     RequestRender,
+    Command(Command),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Command {
+    Quit,
+    Help,
+}
+
+impl EventResult {
+    pub fn requests_render(&self) -> bool {
+        matches!(
+            self,
+            EventResult::RequestRender | EventResult::Command(Command::Help)
+        )
+    }
+
+    pub fn command(&self) -> Option<&Command> {
+        match self {
+            EventResult::Command(command) => Some(command),
+            _ => None,
+        }
+    }
+}
+
+impl Command {
+    pub fn requests_quit(&self) -> bool {
+        matches!(self, Command::Quit)
+    }
+
+    pub fn requests_render(&self) -> bool {
+        matches!(self, Command::Help)
+    }
 }
 
 #[cfg(test)]
@@ -128,7 +173,47 @@ mod tests {
             EventResult::Ignored,
             EventResult::Consumed,
             EventResult::RequestRender,
+            EventResult::Command(Command::Quit),
         ];
-        assert_eq!(results.len(), 3);
+        assert_eq!(results.len(), 4);
+    }
+
+    #[test]
+    fn test_command_variants() {
+        let commands = vec![Command::Quit, Command::Help];
+        assert_eq!(commands.len(), 2);
+    }
+
+    #[test]
+    fn test_event_result_helpers() {
+        assert!(EventResult::RequestRender.requests_render());
+        assert!(EventResult::Command(Command::Help).requests_render());
+        assert!(!EventResult::Consumed.requests_render());
+        assert_eq!(
+            EventResult::Command(Command::Quit).command(),
+            Some(&Command::Quit)
+        );
+        assert_eq!(EventResult::Ignored.command(), None);
+    }
+
+    #[test]
+    fn test_command_helpers() {
+        assert!(Command::Quit.requests_quit());
+        assert!(!Command::Help.requests_quit());
+        assert!(Command::Help.requests_render());
+        assert!(!Command::Quit.requests_render());
+    }
+
+    #[test]
+    fn test_event_render_helpers() {
+        assert!(Event::Resize {
+            width: 120,
+            height: 40
+        }
+        .requests_render());
+        assert!(Event::HelpRequested.requests_render());
+        assert!(Event::FocusGained(ComponentId("root".into())).requests_render());
+        assert!(!Event::Tick.requests_render());
+        assert!(!Event::QuitRequested.requests_render());
     }
 }
