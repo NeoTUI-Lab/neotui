@@ -6,5 +6,5 @@ pub mod event_adapter;
 pub mod panic;
 pub mod terminal;
 
-pub use app::{AppRuntime, EventSource, RuntimeEventSource, RuntimeIteration};
+pub use app::{AppRuntime, EventSource, GlobalShortcuts, RuntimeEventSource, RuntimeIteration};
 pub use terminal::{TerminalLifecycle, TerminalSession};

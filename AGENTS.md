@@ -2,10 +2,10 @@
 
 ## Last Executed Task
 
-**TASK-002.2.2** - Adicionar alinhamento horizontal ao desenho de texto
+**TASK-005.4.4** - Implementar atalhos globais
 - Status: Completed
-- Date: 2026-05-04
-- Summary: Added `TextAlign` and `ScreenBuffer::draw_text_aligned()` for left/center/right text placement within a width, with unit coverage for alignment and clipping behavior.
+- Date: 2026-05-05
+- Summary: Added configurable `GlobalShortcuts` to `AppRuntime`, replacing hardcoded shortcut checks with NeoTUI-owned key matching while keeping default `Ctrl+Q` and `F1` behavior and allowing override or disablement in tests and future apps.
 
 ---
 

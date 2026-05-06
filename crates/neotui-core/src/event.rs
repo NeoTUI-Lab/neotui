@@ -7,6 +7,12 @@ pub struct KeyEvent {
     pub modifiers: KeyModifiers,
 }
 
+impl KeyEvent {
+    pub fn matches_shortcut(&self, shortcut: &KeyShortcut) -> bool {
+        self.code == shortcut.code && self.modifiers == shortcut.modifiers
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum KeyCode {
     Char(char),
@@ -31,6 +37,39 @@ pub struct KeyModifiers {
     pub shift: bool,
     pub ctrl: bool,
     pub alt: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct KeyShortcut {
+    pub code: KeyCode,
+    pub modifiers: KeyModifiers,
+}
+
+impl KeyShortcut {
+    pub fn new(code: KeyCode, modifiers: KeyModifiers) -> Self {
+        Self { code, modifiers }
+    }
+
+    pub fn ctrl(code: char) -> Self {
+        Self {
+            code: KeyCode::Char(code),
+            modifiers: KeyModifiers {
+                ctrl: true,
+                ..Default::default()
+            },
+        }
+    }
+
+    pub fn plain(code: KeyCode) -> Self {
+        Self {
+            code,
+            modifiers: KeyModifiers::default(),
+        }
+    }
+
+    pub fn matches(&self, event: &Event) -> bool {
+        matches!(event, Event::Key(key) if key.matches_shortcut(self))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,6 +141,7 @@ pub enum EventResult {
     Consumed,
     RequestRender,
     Command(Command),
+    Bubble(Command),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -121,6 +161,13 @@ impl EventResult {
     pub fn command(&self) -> Option<&Command> {
         match self {
             EventResult::Command(command) => Some(command),
+            _ => None,
+        }
+    }
+
+    pub fn bubbled_command(&self) -> Option<&Command> {
+        match self {
+            EventResult::Bubble(command) => Some(command),
             _ => None,
         }
     }
@@ -174,8 +221,9 @@ mod tests {
             EventResult::Consumed,
             EventResult::RequestRender,
             EventResult::Command(Command::Quit),
+            EventResult::Bubble(Command::Help),
         ];
-        assert_eq!(results.len(), 4);
+        assert_eq!(results.len(), 5);
     }
 
     #[test]
@@ -194,6 +242,10 @@ mod tests {
             Some(&Command::Quit)
         );
         assert_eq!(EventResult::Ignored.command(), None);
+        assert_eq!(
+            EventResult::Bubble(Command::Help).bubbled_command(),
+            Some(&Command::Help)
+        );
     }
 
     #[test]
@@ -215,5 +267,20 @@ mod tests {
         assert!(Event::FocusGained(ComponentId("root".into())).requests_render());
         assert!(!Event::Tick.requests_render());
         assert!(!Event::QuitRequested.requests_render());
+    }
+
+    #[test]
+    fn test_key_shortcut_matches_key_event() {
+        let event = Event::Key(KeyEvent {
+            code: KeyCode::Char('q'),
+            modifiers: KeyModifiers {
+                ctrl: true,
+                ..Default::default()
+            },
+        });
+
+        assert!(KeyShortcut::ctrl('q').matches(&event));
+        assert!(!KeyShortcut::ctrl('w').matches(&event));
+        assert!(!KeyShortcut::plain(KeyCode::Char('q')).matches(&event));
     }
 }

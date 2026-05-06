@@ -1,7 +1,7 @@
 // Minimal runtime event loop
 // Owns event polling and shortcut normalization for terminal apps
 
-use crate::event::{Command, Event, EventResult, KeyCode};
+use crate::event::{Command, Event, EventResult, KeyCode, KeyShortcut};
 use crate::runtime::event_adapter;
 use crate::runtime::panic;
 use crate::runtime::terminal::{TerminalLifecycle, TerminalSession};
@@ -40,6 +40,13 @@ impl EventSource for RuntimeEventSource {
 pub struct AppRuntime<E = RuntimeEventSource> {
     event_source: E,
     tick_rate: Option<Duration>,
+    shortcuts: GlobalShortcuts,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct GlobalShortcuts {
+    pub quit: Option<KeyShortcut>,
+    pub help: Option<KeyShortcut>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -53,6 +60,15 @@ pub struct RuntimeIteration {
 impl Default for AppRuntime<RuntimeEventSource> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl Default for GlobalShortcuts {
+    fn default() -> Self {
+        Self {
+            quit: Some(KeyShortcut::ctrl('q')),
+            help: Some(KeyShortcut::plain(KeyCode::F(1))),
+        }
     }
 }
 
@@ -75,6 +91,7 @@ impl AppRuntime<RuntimeEventSource> {
         Self {
             event_source: RuntimeEventSource,
             tick_rate: None,
+            shortcuts: GlobalShortcuts::default(),
         }
     }
 }
@@ -87,6 +104,7 @@ where
         Self {
             event_source,
             tick_rate: None,
+            shortcuts: GlobalShortcuts::default(),
         }
     }
 
@@ -95,8 +113,17 @@ where
         self
     }
 
+    pub fn with_shortcuts(mut self, shortcuts: GlobalShortcuts) -> Self {
+        self.shortcuts = shortcuts;
+        self
+    }
+
     pub fn tick_rate(&self) -> Option<Duration> {
         self.tick_rate
+    }
+
+    pub fn shortcuts(&self) -> &GlobalShortcuts {
+        &self.shortcuts
     }
 
     pub fn run<F>(&mut self, mut on_event: F) -> io::Result<()>
@@ -116,7 +143,10 @@ where
     where
         F: FnMut(Event) -> EventResult,
     {
-        let event = normalize_runtime_event(self.event_source.next_event(self.tick_rate)?);
+        let event = normalize_runtime_event(
+            self.event_source.next_event(self.tick_rate)?,
+            &self.shortcuts,
+        );
         let result = on_event(event.clone());
 
         Ok(RuntimeIteration::new(event, result))
@@ -151,33 +181,28 @@ impl AppRuntime<RuntimeEventSource> {
     }
 }
 
-fn normalize_runtime_event(event: Event) -> Event {
+fn normalize_runtime_event(event: Event, shortcuts: &GlobalShortcuts) -> Event {
     if let Some(scroll) = event_adapter::extract_scroll(&event) {
         return Event::Scroll(scroll);
     }
 
-    if is_quit_shortcut(&event) {
+    if shortcuts
+        .quit
+        .as_ref()
+        .is_some_and(|shortcut| shortcut.matches(&event))
+    {
         return Event::QuitRequested;
     }
 
-    if is_help_shortcut(&event) {
+    if shortcuts
+        .help
+        .as_ref()
+        .is_some_and(|shortcut| shortcut.matches(&event))
+    {
         return Event::HelpRequested;
     }
 
     event
-}
-
-fn is_quit_shortcut(event: &Event) -> bool {
-    match event {
-        Event::Key(key) => {
-            key.modifiers.ctrl && matches!(key.code, KeyCode::Char('q') | KeyCode::Char('Q'))
-        }
-        _ => false,
-    }
-}
-
-fn is_help_shortcut(event: &Event) -> bool {
-    matches!(event, Event::Key(key) if key.code == KeyCode::F(1))
 }
 
 #[cfg(test)]
@@ -458,6 +483,73 @@ mod tests {
         );
 
         assert!(iteration.should_render);
+        assert!(!iteration.should_quit);
+    }
+
+    #[test]
+    fn runtime_uses_default_global_shortcuts() {
+        let runtime = AppRuntime::new();
+
+        assert_eq!(runtime.shortcuts().quit, Some(KeyShortcut::ctrl('q')));
+        assert_eq!(
+            runtime.shortcuts().help,
+            Some(KeyShortcut::plain(KeyCode::F(1)))
+        );
+    }
+
+    #[test]
+    fn runtime_allows_custom_global_shortcuts() {
+        let shortcuts = GlobalShortcuts {
+            quit: Some(KeyShortcut::ctrl('x')),
+            help: Some(KeyShortcut::plain(KeyCode::F(2))),
+        };
+        let mut runtime =
+            AppRuntime::with_event_source(MockEventSource::new(vec![Event::Key(KeyEvent {
+                code: KeyCode::Char('x'),
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    ..Default::default()
+                },
+            })]))
+            .with_shortcuts(shortcuts);
+
+        let iteration = runtime
+            .run_once(|_| EventResult::Consumed)
+            .expect("runtime should normalize custom shortcuts");
+
+        assert_eq!(iteration.event, Event::QuitRequested);
+        assert!(iteration.should_quit);
+    }
+
+    #[test]
+    fn runtime_can_disable_global_shortcuts() {
+        let mut runtime =
+            AppRuntime::with_event_source(MockEventSource::new(vec![Event::Key(KeyEvent {
+                code: KeyCode::Char('q'),
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    ..Default::default()
+                },
+            })]))
+            .with_shortcuts(GlobalShortcuts {
+                quit: None,
+                help: None,
+            });
+
+        let iteration = runtime
+            .run_once(|_| EventResult::Consumed)
+            .expect("runtime should preserve raw key event when shortcut is disabled");
+
+        assert_eq!(
+            iteration.event,
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('q'),
+                modifiers: KeyModifiers {
+                    ctrl: true,
+                    ..Default::default()
+                },
+            })
+        );
         assert!(!iteration.should_quit);
     }
 }
