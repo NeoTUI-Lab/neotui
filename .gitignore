@@ -1,0 +1,15 @@
+# Rust build artifacts
+/target/
+
+# Python local caches
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
