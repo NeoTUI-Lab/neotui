@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-005.4.4** - Implementar atalhos globais
+**TASK-008.4.1** - Adicionar exemplos DSL cobrindo componentes MVP disponíveis
 - Status: Completed
-- Date: 2026-05-05
-- Summary: Added configurable `GlobalShortcuts` to `AppRuntime`, replacing hardcoded shortcut checks with NeoTUI-owned key matching while keeping default `Ctrl+Q` and `F1` behavior and allowing override or disablement in tests and future apps.
+- Date: 2026-05-07
+- Summary: Added canonical TOML/JSON examples for `Panel`, `Label`, `Divider` and `Spacer`, including a themed demo, and tied them to parser, validator, CLI `check` and registry tests so examples act as real fixtures instead of placeholder files.
 
 ---
 
 ## Next Task
 
-**TASK-000.1.2** - Criar `Cargo.toml` workspace na raiz
-- Status: Completed
+**TASK-009.1.1** - Implementar fluxo mínimo de `neotui run <file>`
+- Status: Pending
 - Priority: P0
-- Depends on: TASK-000.1.1
-- Date: 2026-04-28
-- Summary: Root `Cargo.toml` configured with `resolver = "2"` and workspace members (`crates/neotui-core`, `crates/neotui-cli`, `crates/neotui-gui`). Rust toolchain installed via rustup; `rustc --version`, `cargo --version` and `cargo metadata --format-version 1 --no-deps` succeeded.
+- Depends on: TASK-008.4.1
+- Date: 2026-05-07
+- Summary: Connect file loading, DSL parsing, validation, component instantiation and terminal lifecycle in the CLI so a minimal app spec can actually be executed with `neotui run <file>`.
 
 ### Objective
 

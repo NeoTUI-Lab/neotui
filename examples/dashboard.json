@@ -1,0 +1,40 @@
+{
+  "schema_version": "0.1",
+  "theme": "minimal",
+  "root": {
+    "kind": "Panel",
+    "id": "dashboard-json",
+    "props": {
+      "title": "Release Overview"
+    },
+    "children": [
+      {
+        "kind": "Label",
+        "id": "release-title",
+        "props": {
+          "text": "v0.1 readiness",
+          "align": "center"
+        }
+      },
+      {
+        "kind": "Divider",
+        "props": {
+          "orientation": "horizontal",
+          "symbol": "-"
+        }
+      },
+      {
+        "kind": "Spacer",
+        "id": "gap"
+      },
+      {
+        "kind": "Label",
+        "id": "release-note",
+        "props": {
+          "text": "DSL validation and registry are wired",
+          "align": "left"
+        }
+      }
+    ]
+  }
+}

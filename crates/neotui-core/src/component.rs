@@ -47,8 +47,26 @@ impl LayoutNode {
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct LayoutContext;
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct RenderContext;
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RenderContext {
+    area: Rect,
+}
+
+impl RenderContext {
+    pub fn new(area: Rect) -> Self {
+        Self { area }
+    }
+
+    pub fn area(&self) -> &Rect {
+        &self.area
+    }
+}
+
+impl Default for RenderContext {
+    fn default() -> Self {
+        Self::new(Rect::new(0, 0, 0, 0))
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct EventContext {

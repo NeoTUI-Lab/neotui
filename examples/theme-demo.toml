@@ -1,0 +1,32 @@
+schema_version = "0.1"
+theme = "cyberpunk"
+
+[root]
+kind = "Panel"
+id = "theme-demo"
+
+[root.props]
+title = "Theme Demo"
+
+[[root.children]]
+kind = "Label"
+id = "theme-name"
+
+[root.children.props]
+text = "Cyberpunk preset active"
+align = "center"
+
+[[root.children]]
+kind = "Divider"
+
+[root.children.props]
+orientation = "horizontal"
+symbol = "*"
+
+[[root.children]]
+kind = "Label"
+id = "theme-detail"
+
+[root.children.props]
+text = "Accent colors come from the theme preset"
+align = "left"

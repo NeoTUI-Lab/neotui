@@ -1,0 +1,33 @@
+schema_version = "0.1"
+theme = "dark"
+
+[root]
+kind = "Panel"
+id = "dashboard"
+
+[root.props]
+title = "Operations"
+
+[[root.children]]
+kind = "Label"
+id = "headline"
+
+[root.children.props]
+text = "Service Health"
+align = "center"
+
+[[root.children]]
+kind = "Divider"
+id = "separator"
+
+[root.children.props]
+orientation = "horizontal"
+symbol = "="
+
+[[root.children]]
+kind = "Label"
+id = "summary"
+
+[root.children.props]
+text = "All critical services responding"
+align = "left"
