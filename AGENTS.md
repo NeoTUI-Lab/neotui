@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-008.4.1** - Adicionar exemplos DSL cobrindo componentes MVP disponíveis
+**TASK-009.1.1** - Implementar fluxo mínimo de `neotui run <file>`
 - Status: Completed
-- Date: 2026-05-07
-- Summary: Added canonical TOML/JSON examples for `Panel`, `Label`, `Divider` and `Spacer`, including a themed demo, and tied them to parser, validator, CLI `check` and registry tests so examples act as real fixtures instead of placeholder files.
+- Date: 2026-05-17
+- Summary: Connected CLI file loading, format detection, DSL parsing, validation, component instantiation and terminal lifecycle so `neotui run <file>` can render a minimal app spec, react to resize-driven redraws and exit cleanly with Ctrl+Q.
 
 ---
 
 ## Next Task
 
-**TASK-009.1.1** - Implementar fluxo mínimo de `neotui run <file>`
+**TASK-009.1.2** - Definir próximo incremento do fluxo `run`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-008.4.1
-- Date: 2026-05-07
-- Summary: Connect file loading, DSL parsing, validation, component instantiation and terminal lifecycle in the CLI so a minimal app spec can actually be executed with `neotui run <file>`.
+- Depends on: TASK-009.1.1
+- Date: 2026-05-17
+- Summary: Roadmap breakdown for the next `run` subtask is not yet recorded in the repository; define and execute the next incremental slice without changing the terminal-first MVP direction.
 
 ### Objective
 
