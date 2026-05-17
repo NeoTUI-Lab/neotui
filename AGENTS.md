@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.2.8** - Destacar componentes mais recorrentes no `check`
+**TASK-009.2.9** - Sinalizar distribuição estrutural compacta no `check`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Extended successful `neotui check` output with a compact dominant-component summary so the command now highlights the main composition pattern of each DSL fixture at a glance.
+- Summary: Extended successful `neotui check` output with a compact structure-balance hint derived from container versus leaf counts, making composition density easier to read at a glance.
 
 ---
 
 ## Next Task
 
-**TASK-009.2.9** - Sinalizar distribuição estrutural compacta no `check`
+**TASK-009.2.10** - Consolidar helpers de inspeção estrutural do `check`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.2.8
+- Depends on: TASK-009.2.9
 - Date: 2026-05-17
-- Summary: Extend the success-side summary with one more compact structural hint, such as balance between containers and leaves or dominant layout traits, without turning `check` into a verbose inspection dump.
+- Summary: Refactor the growing `check` structural inspection helpers into a clearer internal shape so the command stays easy to evolve as more widgets and layout hints are added.
 
 ### Objective
 

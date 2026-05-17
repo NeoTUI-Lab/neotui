@@ -198,6 +198,7 @@ fn format_check_success(
     let layout_prop_counts = collect_layout_prop_counts(&spec.root);
     let orientation_summary = collect_orientation_summary(&spec.root);
     let dominant_kinds = summarize_dominant_kinds(&kind_counts);
+    let structure_balance = summarize_structure_balance(metrics);
     let component_ids = tree
         .ids_depth_first()
         .into_iter()
@@ -224,7 +225,7 @@ fn format_check_success(
     let component_preview = component_ids.join(", ");
 
     format!(
-        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\ncomponent_count: {}\nmax_depth: {}\ncontainer_components: {}\nleaf_components: {}\ndominant_kinds: [{}]\norientation: [{}]\nlayout_props: [{}]\ncomponent_kinds: [{}]\ncomponent_ids: [{}]\nphases: parse, validate, instantiate",
+        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\ncomponent_count: {}\nmax_depth: {}\ncontainer_components: {}\nleaf_components: {}\nstructure_balance: {}\ndominant_kinds: [{}]\norientation: [{}]\nlayout_props: [{}]\ncomponent_kinds: [{}]\ncomponent_ids: [{}]\nphases: parse, validate, instantiate",
         path.display(),
         display_format(format),
         spec.schema_version,
@@ -234,6 +235,7 @@ fn format_check_success(
         tree.max_depth(),
         metrics.container_components,
         metrics.leaf_components,
+        structure_balance,
         dominant_preview,
         orientation_preview,
         layout_prop_preview,
@@ -378,6 +380,19 @@ fn summarize_dominant_kinds(kind_counts: &BTreeMap<String, usize>) -> Vec<String
         .collect::<Vec<_>>();
     dominant.sort();
     dominant
+}
+
+fn summarize_structure_balance(metrics: StructureMetrics) -> &'static str {
+    match (
+        metrics.container_components.cmp(&metrics.leaf_components),
+        metrics.container_components,
+        metrics.leaf_components,
+    ) {
+        (_, 0, leafs) if leafs > 0 => "leaf-only",
+        (std::cmp::Ordering::Greater, _, _) => "container-heavy",
+        (std::cmp::Ordering::Equal, _, _) => "balanced",
+        (std::cmp::Ordering::Less, _, _) => "leaf-heavy",
+    }
 }
 
 fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
@@ -559,6 +574,7 @@ text = "Hello"
         assert!(output.contains("max_depth: 1"));
         assert!(output.contains("container_components: 0"));
         assert!(output.contains("leaf_components: 1"));
+        assert!(output.contains("structure_balance: leaf-only"));
         assert!(output.contains("dominant_kinds: [Label=1]"));
         assert!(output.contains("orientation: []"));
         assert!(output.contains("layout_props: [align=1]"));
@@ -747,6 +763,7 @@ kind = "Unknown"
         assert!(layout_output.contains("root: `VBox`"));
         assert!(layout_output.contains("container_components: 2"));
         assert!(layout_output.contains("leaf_components: 3"));
+        assert!(layout_output.contains("structure_balance: leaf-heavy"));
         assert!(layout_output.contains("dominant_kinds: [Label=3]"));
         assert!(layout_output.contains("orientation: [horizontal=1, vertical=1]"));
         assert!(layout_output.contains("layout_props: [align=5, fixed=3, gap=2, justify=1]"));
@@ -755,6 +772,7 @@ kind = "Unknown"
         assert!(showcase_output.contains("component_count: 9"));
         assert!(showcase_output.contains("container_components: 3"));
         assert!(showcase_output.contains("leaf_components: 6"));
+        assert!(showcase_output.contains("structure_balance: leaf-heavy"));
         assert!(showcase_output.contains("dominant_kinds: [Label=5]"));
         assert!(showcase_output
             .contains("orientation: [framed=1, horizontal=1, separator=1, vertical=1]"));
