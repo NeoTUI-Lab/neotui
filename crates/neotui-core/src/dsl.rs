@@ -909,4 +909,18 @@ align = "center"
         assert_eq!(spec.root.kind, "Panel");
         assert_eq!(spec.root.children.len(), 4);
     }
+
+    #[test]
+    fn parses_showcase_layout_example() {
+        let input = std::fs::read_to_string("examples/showcase-layout.toml")
+            .expect("showcase layout example should exist");
+
+        let spec = AppSpec::from_toml_str(&input).expect("showcase layout example should parse");
+
+        assert_eq!(spec.theme.as_deref(), Some("dark"));
+        assert_eq!(spec.root.kind, "Panel");
+        assert_eq!(spec.root.children.len(), 1);
+        assert_eq!(spec.root.children[0].kind, "VBox");
+        assert_eq!(spec.root.children[0].children.len(), 4);
+    }
 }

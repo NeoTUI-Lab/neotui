@@ -1,0 +1,84 @@
+schema_version = "0.1"
+theme = "dark"
+
+[root]
+kind = "Panel"
+id = "showcase"
+
+[root.props]
+title = "Operations Board"
+
+[[root.children]]
+kind = "VBox"
+id = "content"
+
+[root.children.props]
+gap = 1
+align = "center"
+
+[[root.children.children]]
+kind = "Label"
+id = "headline"
+
+[root.children.children.props]
+text = "Cluster Overview"
+align = "center"
+width = 18
+height = 1
+
+[[root.children.children]]
+kind = "Divider"
+id = "rule"
+
+[root.children.children.props]
+orientation = "horizontal"
+symbol = "="
+
+[[root.children.children]]
+kind = "HBox"
+id = "stats"
+
+[root.children.children.props]
+gap = 2
+justify = "center"
+align = "center"
+
+[[root.children.children.children]]
+kind = "Label"
+id = "service-a"
+
+[root.children.children.children.props]
+text = "API OK"
+align = "center"
+width = 8
+height = 1
+
+[[root.children.children.children]]
+kind = "Label"
+id = "service-b"
+
+[root.children.children.children.props]
+text = "Jobs OK"
+align = "center"
+width = 8
+height = 1
+
+[[root.children.children.children]]
+kind = "Label"
+id = "service-c"
+
+[root.children.children.children.props]
+text = "Cache OK"
+align = "center"
+width = 8
+height = 1
+
+[[root.children.children]]
+kind = "Label"
+id = "footer"
+
+[root.children.children.props]
+text = "All critical services responding"
+align = "center"
+width = 32
+height = 1

@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.1.6** - Refinar alinhamento e distribuição em containers declarativos
+**TASK-009.1.7** - Consolidar showcase de layout declarativo no fluxo `run`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Added `align` and `justify` props to `VBox`/`HBox`, validated them in the DSL, wired them through registry instantiation, and taught stack layout to place constrained children with start/center/end/stretch behavior in the runtime path.
+- Summary: Added a richer canonical DSL showcase that exercises `Panel`, `VBox`, `HBox`, gap, constraints, align and justify together, then tied it to parser, registry and CLI render tests so the current `run` layout slice is covered by a stable executable example.
 
 ---
 
 ## Next Task
 
-**TASK-009.1.7** - Consolidar showcase de layout declarativo no fluxo `run`
+**TASK-009.2.1** - Reforçar diagnósticos do comando `check`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.1.6
+- Depends on: TASK-009.1.7
 - Date: 2026-05-17
-- Summary: Use the now-available gap, constraints, align and justify features to stabilize one richer canonical layout example and close the current `run` layout slice before moving focus fully to richer widgets and interaction.
+- Summary: Improve `neotui check <file>` so validation and instantiation failures surface more actionable guidance now that layout props and container behaviors have expanded.
 
 ### Objective
 

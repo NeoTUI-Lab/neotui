@@ -356,11 +356,14 @@ kind = "Unknown"
             .expect("theme-demo.toml should validate");
         let layout_output = check_file(Path::new("examples/layout-demo.toml"))
             .expect("layout-demo.toml should validate");
+        let showcase_output = check_file(Path::new("examples/showcase-layout.toml"))
+            .expect("showcase-layout.toml should validate");
 
         assert!(toml_output.contains("root `Panel`"));
         assert!(json_output.contains("root `Panel`"));
         assert!(theme_output.contains("root `Panel`"));
         assert!(layout_output.contains("root `VBox`"));
+        assert!(showcase_output.contains("root `Panel`"));
     }
 
     #[test]
@@ -392,5 +395,48 @@ kind = "Unknown"
         assert!(gap_row.trim().is_empty());
         assert!(columns_row.contains("Left"));
         assert!(columns_row.contains("Right"));
+    }
+
+    #[test]
+    fn render_tree_supports_showcase_layout_example() {
+        let LoadedApp { tree, .. } = load_app(Path::new("examples/showcase-layout.toml"))
+            .expect("showcase layout fixture should load");
+        let area = Rect::new(0, 0, 40, 10);
+        let mut frame = ScreenBuffer::new(40, 10);
+        let layout = tree.layout(&LayoutContext, area);
+
+        assert_eq!(layout.children[0].area, Rect::new(1, 1, 38, 8));
+        assert_eq!(layout.children[0].children[0].area, Rect::new(11, 1, 18, 1));
+        assert_eq!(layout.children[0].children[2].area, Rect::new(1, 5, 38, 1));
+        assert_eq!(
+            layout.children[0].children[2].children[0].area,
+            Rect::new(5, 5, 8, 1)
+        );
+        assert_eq!(
+            layout.children[0].children[2].children[1].area,
+            Rect::new(15, 5, 8, 1)
+        );
+        assert_eq!(
+            layout.children[0].children[2].children[2].area,
+            Rect::new(25, 5, 8, 1)
+        );
+
+        tree.render_with_layout(&layout, &mut frame);
+
+        let title_row: String = (0..40)
+            .map(|x| frame.get(x, 1).map(|cell| cell.symbol).unwrap_or(' '))
+            .collect();
+        let stats_row: String = (0..40)
+            .map(|x| frame.get(x, 5).map(|cell| cell.symbol).unwrap_or(' '))
+            .collect();
+        let footer_row: String = (0..40)
+            .map(|x| frame.get(x, 8).map(|cell| cell.symbol).unwrap_or(' '))
+            .collect();
+
+        assert!(title_row.contains("Cluster Overview"));
+        assert!(stats_row.contains("API OK"));
+        assert!(stats_row.contains("Jobs OK"));
+        assert!(stats_row.contains("Cache OK"));
+        assert!(footer_row.contains("All critical services responding"));
     }
 }

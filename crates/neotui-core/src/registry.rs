@@ -734,4 +734,33 @@ mod tests {
             vec!["dashboard", "headline", "separator", "summary"]
         );
     }
+
+    #[test]
+    fn registry_builds_tree_from_showcase_layout_example() {
+        let input = std::fs::read_to_string("examples/showcase-layout.toml")
+            .expect("showcase layout example should exist");
+        let spec = AppSpec::from_toml_str(&input).expect("showcase layout example should parse");
+
+        let tree = ComponentRegistry::new()
+            .build_tree(&spec)
+            .expect("showcase layout example should instantiate");
+
+        assert_eq!(
+            tree.ids_depth_first()
+                .into_iter()
+                .map(|id| id.0)
+                .collect::<Vec<_>>(),
+            vec![
+                "showcase",
+                "content",
+                "headline",
+                "rule",
+                "stats",
+                "service-a",
+                "service-b",
+                "service-c",
+                "footer",
+            ]
+        );
+    }
 }
