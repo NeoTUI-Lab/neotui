@@ -199,8 +199,18 @@ struct DoctorReport {
     stdin_tty: bool,
     stdout_tty: bool,
     terminal_size: Option<(u16, u16)>,
+    terminal_size_class: &'static str,
+    terminal_family: &'static str,
+    color_support: &'static str,
+    mouse_support: &'static str,
+    raw_mode_support: &'static str,
+    alternate_screen_support: &'static str,
+    gui_support: &'static str,
+    debug_mode: &'static str,
     term_env_present: bool,
     colorterm_env_present: bool,
+    readiness: &'static str,
+    hints: Vec<&'static str>,
 }
 
 fn doctor_report() -> String {
@@ -208,13 +218,53 @@ fn doctor_report() -> String {
 }
 
 fn collect_doctor_report() -> DoctorReport {
+    let stdin_tty = io::stdin().is_terminal();
+    let stdout_tty = io::stdout().is_terminal();
+    let terminal_size = terminal::size().ok();
+    let term_env = std::env::var_os("TERM");
+    let colorterm_env = std::env::var_os("COLORTERM");
+    let terminal_family = detect_terminal_family(term_env.as_ref());
+    let color_support = detect_color_support(term_env.as_ref(), colorterm_env.as_ref());
+    let mouse_support = detect_mouse_support(stdin_tty, stdout_tty, terminal_family);
+    let raw_mode_support = detect_raw_mode_support(stdin_tty, stdout_tty, terminal_family);
+    let alternate_screen_support = detect_alternate_screen_support(stdout_tty, terminal_family);
+    let gui_support = detect_gui_support();
+    let debug_mode = detect_debug_mode(std::env::var_os("NEOTUI_DEBUG").as_ref());
+    let terminal_size_class = classify_terminal_size(terminal_size);
+    let hints = collect_doctor_hints(
+        stdin_tty,
+        stdout_tty,
+        terminal_size_class,
+        gui_support,
+        debug_mode,
+    );
+    let readiness = if stdin_tty
+        && stdout_tty
+        && raw_mode_support != "unavailable"
+        && alternate_screen_support != "unavailable"
+    {
+        "ready"
+    } else {
+        "degraded"
+    };
+
     DoctorReport {
         backend: "crossterm",
-        stdin_tty: io::stdin().is_terminal(),
-        stdout_tty: io::stdout().is_terminal(),
-        terminal_size: terminal::size().ok(),
-        term_env_present: std::env::var_os("TERM").is_some(),
-        colorterm_env_present: std::env::var_os("COLORTERM").is_some(),
+        stdin_tty,
+        stdout_tty,
+        terminal_size,
+        terminal_size_class,
+        terminal_family,
+        color_support,
+        mouse_support,
+        raw_mode_support,
+        alternate_screen_support,
+        gui_support,
+        debug_mode,
+        term_env_present: term_env.is_some(),
+        colorterm_env_present: colorterm_env.is_some(),
+        readiness,
+        hints,
     }
 }
 
@@ -223,20 +273,26 @@ fn format_doctor_report(report: DoctorReport) -> String {
         .terminal_size
         .map(|(width, height)| format!("{width}x{height}"))
         .unwrap_or_else(|| "unavailable".into());
-    let readiness = if report.stdin_tty && report.stdout_tty {
-        "ready"
-    } else {
-        "degraded"
-    };
+    let hints = report.hints.join("; ");
 
     format!(
-        "doctor {readiness}\nbackend: {}\nstdin_tty: {}\nstdout_tty: {}\nterminal_size: {}\nterm_env_present: {}\ncolorterm_env_present: {}\nhint: this report avoids printing terminal environment values directly",
+        "doctor {}\nbackend: {}\nstdin_tty: {}\nstdout_tty: {}\nterminal_size: {}\nterminal_size_class: {}\nterminal_family: {}\ncolor_support: {}\nmouse_support: {}\nraw_mode_support: {}\nalternate_screen_support: {}\ngui_support: {}\ndebug_mode: {}\nterm_env_present: {}\ncolorterm_env_present: {}\nhint: {}\nnote: this report avoids printing terminal environment values directly",
+        report.readiness,
         report.backend,
         bool_label(report.stdin_tty),
         bool_label(report.stdout_tty),
         terminal_size,
+        report.terminal_size_class,
+        report.terminal_family,
+        report.color_support,
+        report.mouse_support,
+        report.raw_mode_support,
+        report.alternate_screen_support,
+        report.gui_support,
+        report.debug_mode,
         bool_label(report.term_env_present),
-        bool_label(report.colorterm_env_present)
+        bool_label(report.colorterm_env_present),
+        hints
     )
 }
 
@@ -246,6 +302,150 @@ fn bool_label(value: bool) -> &'static str {
     } else {
         "no"
     }
+}
+
+fn detect_terminal_family(term: Option<&std::ffi::OsString>) -> &'static str {
+    let Some(term) = term else {
+        return "unavailable";
+    };
+    let lower = term.to_string_lossy().to_ascii_lowercase();
+
+    if lower.contains("xterm") || lower.contains("kitty") || lower.contains("alacritty") {
+        "xterm-compatible"
+    } else if lower.contains("screen") || lower.contains("tmux") {
+        "multiplexer"
+    } else if lower == "linux" {
+        "linux-console"
+    } else if lower == "dumb" {
+        "dumb"
+    } else {
+        "unknown"
+    }
+}
+
+fn detect_color_support(
+    term: Option<&std::ffi::OsString>,
+    colorterm: Option<&std::ffi::OsString>,
+) -> &'static str {
+    let colorterm_lower = colorterm.map(|value| value.to_string_lossy().to_ascii_lowercase());
+    let term_lower = term.map(|value| value.to_string_lossy().to_ascii_lowercase());
+
+    if colorterm_lower
+        .as_deref()
+        .is_some_and(|value| value.contains("truecolor") || value.contains("24bit"))
+    {
+        "truecolor"
+    } else if term_lower
+        .as_deref()
+        .is_some_and(|value| value.contains("256color"))
+    {
+        "ansi256"
+    } else if term_lower.as_deref().is_some_and(|value| value == "dumb") {
+        "monochrome"
+    } else if term_lower.is_some() || colorterm_lower.is_some() {
+        "basic"
+    } else {
+        "unknown"
+    }
+}
+
+fn detect_mouse_support(stdin_tty: bool, stdout_tty: bool, terminal_family: &str) -> &'static str {
+    if !stdin_tty || !stdout_tty {
+        "unavailable"
+    } else if terminal_family == "dumb" || terminal_family == "unavailable" {
+        "unlikely"
+    } else if terminal_family == "unknown" {
+        "unknown"
+    } else {
+        "likely"
+    }
+}
+
+fn detect_raw_mode_support(
+    stdin_tty: bool,
+    stdout_tty: bool,
+    terminal_family: &str,
+) -> &'static str {
+    if !stdin_tty || !stdout_tty || terminal_family == "dumb" {
+        "unavailable"
+    } else {
+        "likely"
+    }
+}
+
+fn detect_alternate_screen_support(stdout_tty: bool, terminal_family: &str) -> &'static str {
+    if !stdout_tty || terminal_family == "dumb" {
+        "unavailable"
+    } else if terminal_family == "unknown" || terminal_family == "unavailable" {
+        "unknown"
+    } else {
+        "likely"
+    }
+}
+
+fn detect_gui_support() -> &'static str {
+    let gui_manifest_present = Path::new("crates/neotui-gui/Cargo.toml").exists();
+
+    if !gui_manifest_present {
+        "manifest-missing"
+    } else if cfg!(target_os = "linux") {
+        "gtk-vte-declared"
+    } else {
+        "linux-only-runtime"
+    }
+}
+
+fn detect_debug_mode(flag: Option<&std::ffi::OsString>) -> &'static str {
+    let Some(flag) = flag else {
+        return "disabled";
+    };
+    let lower = flag.to_string_lossy().to_ascii_lowercase();
+
+    if matches!(lower.as_str(), "1" | "true" | "yes" | "on" | "debug") {
+        "enabled"
+    } else {
+        "disabled"
+    }
+}
+
+fn classify_terminal_size(size: Option<(u16, u16)>) -> &'static str {
+    match size {
+        Some((width, height)) if width >= 80 && height >= 24 => "comfortable",
+        Some((width, height)) if width >= 40 && height >= 10 => "compact",
+        Some(_) => "constrained",
+        None => "unavailable",
+    }
+}
+
+fn collect_doctor_hints(
+    stdin_tty: bool,
+    stdout_tty: bool,
+    terminal_size_class: &str,
+    gui_support: &str,
+    debug_mode: &str,
+) -> Vec<&'static str> {
+    let mut hints = Vec::new();
+
+    if !stdin_tty || !stdout_tty {
+        hints.push("run `neotui` inside an interactive terminal session");
+    }
+    if terminal_size_class == "constrained" {
+        hints.push("resize the terminal for a more reliable MVP layout preview");
+    }
+    if terminal_size_class == "unavailable" {
+        hints.push("terminal size probing is unavailable in this environment");
+    }
+    if gui_support == "linux-only-runtime" {
+        hints.push("the MVP GUI path currently targets Linux with GTK/VTE");
+    }
+    if debug_mode == "enabled" {
+        hints.push("NEOTUI_DEBUG appears enabled, so extra diagnostics may be expected");
+    }
+    if hints.is_empty() {
+        hints.push("core runtime signals look usable for terminal-first NeoTUI flows");
+    }
+
+    hints
 }
 
 fn format_check_success(
@@ -617,8 +817,21 @@ mod tests {
             stdin_tty: true,
             stdout_tty: false,
             terminal_size: Some((120, 40)),
+            terminal_size_class: "comfortable",
+            terminal_family: "unknown",
+            color_support: "truecolor",
+            mouse_support: "unavailable",
+            raw_mode_support: "unavailable",
+            alternate_screen_support: "likely",
+            gui_support: "linux-only-runtime",
+            debug_mode: "enabled",
             term_env_present: true,
             colorterm_env_present: false,
+            readiness: "degraded",
+            hints: vec![
+                "run `neotui` inside an interactive terminal session",
+                "the MVP GUI path currently targets Linux with GTK/VTE",
+            ],
         });
 
         assert!(output.contains("doctor degraded"));
@@ -626,10 +839,64 @@ mod tests {
         assert!(output.contains("stdin_tty: yes"));
         assert!(output.contains("stdout_tty: no"));
         assert!(output.contains("terminal_size: 120x40"));
+        assert!(output.contains("terminal_size_class: comfortable"));
+        assert!(output.contains("terminal_family: unknown"));
+        assert!(output.contains("color_support: truecolor"));
+        assert!(output.contains("mouse_support: unavailable"));
+        assert!(output.contains("raw_mode_support: unavailable"));
+        assert!(output.contains("alternate_screen_support: likely"));
+        assert!(output.contains("gui_support: linux-only-runtime"));
+        assert!(output.contains("debug_mode: enabled"));
         assert!(output.contains("term_env_present: yes"));
         assert!(output.contains("colorterm_env_present: no"));
+        assert!(output.contains("interactive terminal session"));
         assert!(output.contains("avoids printing terminal environment values directly"));
         assert!(!output.contains("xterm"));
+    }
+
+    #[test]
+    fn doctor_helpers_classify_terminal_signals() {
+        assert_eq!(
+            detect_terminal_family(Some(&std::ffi::OsString::from("xterm-256color"))),
+            "xterm-compatible"
+        );
+        assert_eq!(
+            detect_color_support(
+                Some(&std::ffi::OsString::from("screen-256color")),
+                Some(&std::ffi::OsString::from("truecolor"))
+            ),
+            "truecolor"
+        );
+        assert_eq!(
+            detect_mouse_support(true, true, "xterm-compatible"),
+            "likely"
+        );
+        assert_eq!(
+            detect_raw_mode_support(false, true, "xterm-compatible"),
+            "unavailable"
+        );
+        assert_eq!(detect_alternate_screen_support(true, "unknown"), "unknown");
+        assert_eq!(
+            detect_debug_mode(Some(&std::ffi::OsString::from("1"))),
+            "enabled"
+        );
+        assert_eq!(classify_terminal_size(Some((30, 8))), "constrained");
+    }
+
+    #[test]
+    fn doctor_hints_stay_actionable_and_compact() {
+        let hints =
+            collect_doctor_hints(false, true, "constrained", "linux-only-runtime", "enabled");
+
+        assert_eq!(
+            hints,
+            vec![
+                "run `neotui` inside an interactive terminal session",
+                "resize the terminal for a more reliable MVP layout preview",
+                "the MVP GUI path currently targets Linux with GTK/VTE",
+                "NEOTUI_DEBUG appears enabled, so extra diagnostics may be expected",
+            ]
+        );
     }
 
     #[test]

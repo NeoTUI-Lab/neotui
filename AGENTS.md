@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.3.1** - Introduzir `neotui doctor` mínimo
+**TASK-009.3.7** - Consolidar `neotui doctor` e fechar a US 9.3
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Added a minimal `neotui doctor` command with structured terminal/runtime readiness output covering TTY presence, terminal size probing and environment-signal presence without printing raw environment values.
+- Summary: Completed the `neotui doctor` user story with structured diagnostics for terminal readiness, terminal family, color/mouse/raw-mode/alternate-screen hints, GUI support and debug-mode presence, while keeping environment output safe and actionable.
 
 ---
 
 ## Next Task
 
-**TASK-009.3.2** - Expandir sinais de diagnóstico do `doctor`
+**TASK-010.1.1** - Inicializar pacote `python/neotui-py`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.3.1
+- Depends on: TASK-009.3.7
 - Date: 2026-05-17
-- Summary: Extend `neotui doctor` with a few more actionable readiness checks, such as alternate-screen/raw-mode capability hints and more explicit degradation guidance.
+- Summary: Bootstrap the Python package layout and import smoke path for `neotui-py` so the bindings track can start from a working package skeleton.
 
 ### Objective
 
