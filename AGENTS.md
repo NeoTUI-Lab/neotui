@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.1.1** - Implementar fluxo mínimo de `neotui run <file>`
+**TASK-009.1.2** - Aplicar layout hierárquico mínimo no `run`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Connected CLI file loading, format detection, DSL parsing, validation, component instantiation and terminal lifecycle so `neotui run <file>` can render a minimal app spec, react to resize-driven redraws and exit cleanly with Ctrl+Q.
+- Summary: Added recursive layout computation and layout-aware rendering so `neotui run <file>` no longer paints every child over the full screen area; `Panel` now lays out children inside its content area with a predictable vertical stack suitable for the current MVP widgets.
 
 ---
 
 ## Next Task
 
-**TASK-009.1.2** - Definir próximo incremento do fluxo `run`
+**TASK-009.1.3** - Suportar containers declarativos no fluxo `run`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.1.1
+- Depends on: TASK-009.1.2
 - Date: 2026-05-17
-- Summary: Roadmap breakdown for the next `run` subtask is not yet recorded in the repository; define and execute the next incremental slice without changing the terminal-first MVP direction.
+- Summary: Implement `VBox`/`HBox` instantiation and layout-aware rendering in the runtime path so richer DSL examples can execute without relying only on `Panel` child stacking.
 
 ### Objective
 

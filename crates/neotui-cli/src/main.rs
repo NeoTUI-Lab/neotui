@@ -7,7 +7,7 @@ use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
 use crossterm::terminal;
-use neotui_core::component::{ComponentTree, EventContext, RenderContext};
+use neotui_core::component::{ComponentTree, EventContext, LayoutContext};
 use neotui_core::dsl::{AppSpec, DslFormat};
 use neotui_core::event::{Command as AppCommand, Event, EventResult};
 use neotui_core::layout::Rect;
@@ -172,9 +172,9 @@ fn render_tree(
 ) -> std::io::Result<()> {
     let area = Rect::new(0, 0, viewport.0, viewport.1);
     let mut frame = ScreenBuffer::new(viewport.0, viewport.1);
-    let ctx = RenderContext::new(area);
+    let layout = tree.layout(&LayoutContext, area);
 
-    tree.render(&ctx, &mut frame);
+    tree.render_with_layout(&layout, &mut frame);
     renderer.render_to_stdout(&frame)
 }
 
@@ -310,14 +310,40 @@ kind = "Unknown"
             load_app(Path::new("examples/hello.toml")).expect("hello fixture should load");
         let area = Rect::new(0, 0, 20, 3);
         let mut frame = ScreenBuffer::new(20, 3);
+        let layout = tree.layout(&LayoutContext, area);
 
-        tree.render(&RenderContext::new(area), &mut frame);
+        tree.render_with_layout(&layout, &mut frame);
 
         let rendered_row: String = (0..20)
             .map(|x| frame.get(x, 1).map(|cell| cell.symbol).unwrap_or(' '))
             .collect();
 
         assert!(rendered_row.contains("Hello NeoTUI"));
+    }
+
+    #[test]
+    fn render_tree_places_dashboard_children_in_distinct_rows() {
+        let LoadedApp { tree, .. } =
+            load_app(Path::new("examples/dashboard.toml")).expect("dashboard fixture should load");
+        let area = Rect::new(0, 0, 36, 8);
+        let mut frame = ScreenBuffer::new(36, 8);
+        let layout = tree.layout(&LayoutContext, area);
+
+        tree.render_with_layout(&layout, &mut frame);
+
+        let headline_row: String = (0..36)
+            .map(|x| frame.get(x, 1).map(|cell| cell.symbol).unwrap_or(' '))
+            .collect();
+        let divider_row: String = (0..36)
+            .map(|x| frame.get(x, 3).map(|cell| cell.symbol).unwrap_or(' '))
+            .collect();
+        let summary_row: String = (0..36)
+            .map(|x| frame.get(x, 5).map(|cell| cell.symbol).unwrap_or(' '))
+            .collect();
+
+        assert!(headline_row.contains("Service Health"));
+        assert!(divider_row.contains("="));
+        assert!(summary_row.contains("All critical services responding"));
     }
 
     #[test]

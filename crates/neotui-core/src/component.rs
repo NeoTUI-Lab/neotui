@@ -2,7 +2,7 @@
 // Shared contracts for declarative UI elements
 
 use crate::event::{Command, ComponentId, Event, EventResult};
-use crate::layout::{Position, Rect};
+use crate::layout::{split_vertical, Constraint, Position, Rect};
 use crate::render::ScreenBuffer;
 
 /// Frame alias used by components when rendering into the framebuffer.
@@ -174,6 +174,35 @@ impl ComponentNode {
         }
     }
 
+    pub fn layout_subtree(&self, ctx: &LayoutContext, area: Rect) -> LayoutNode {
+        let child_areas = self
+            .component
+            .child_layout_areas(&area, self.children.len());
+        let children = self
+            .children
+            .iter()
+            .enumerate()
+            .map(|(index, child)| {
+                let child_area = child_areas
+                    .get(index)
+                    .cloned()
+                    .unwrap_or_else(|| area.clone());
+                child.layout_subtree(ctx, child_area)
+            })
+            .collect();
+
+        self.component.layout(ctx, area).with_children(children)
+    }
+
+    pub fn render_layout_subtree(&self, layout: &LayoutNode, frame: &mut Frame) {
+        self.component
+            .render(&RenderContext::new(layout.area.clone()), frame);
+
+        for (child, child_layout) in self.children.iter().zip(layout.children.iter()) {
+            child.render_layout_subtree(child_layout, frame);
+        }
+    }
+
     pub fn dispatch_event(&mut self, ctx: &mut EventContext, event: &Event) -> EventResult {
         for child in self.children.iter_mut().rev() {
             let result = child.dispatch_event(ctx, event);
@@ -228,6 +257,14 @@ impl ComponentTree {
 
     pub fn render(&self, ctx: &RenderContext, frame: &mut Frame) {
         self.root.render_subtree(ctx, frame);
+    }
+
+    pub fn layout(&self, ctx: &LayoutContext, area: Rect) -> LayoutNode {
+        self.root.layout_subtree(ctx, area)
+    }
+
+    pub fn render_with_layout(&self, layout: &LayoutNode, frame: &mut Frame) {
+        self.root.render_layout_subtree(layout, frame);
     }
 
     pub fn dispatch_event(&mut self, ctx: &mut EventContext, event: &Event) -> EventResult {
@@ -316,6 +353,14 @@ pub trait Component {
 
     fn layout(&self, _ctx: &LayoutContext, area: Rect) -> LayoutNode {
         LayoutNode::new(self.id(), area)
+    }
+
+    fn child_layout_areas(&self, area: &Rect, child_count: usize) -> Vec<Rect> {
+        if child_count == 0 {
+            return Vec::new();
+        }
+
+        split_vertical(area.clone(), &vec![Constraint::Flex(1); child_count])
     }
 
     fn render(&self, _ctx: &RenderContext, _frame: &mut Frame);
@@ -459,6 +504,27 @@ mod tests {
         tree.render(&RenderContext, &mut frame);
 
         assert_eq!(frame.get(0, 0).map(|cell| cell.symbol), Some('C'));
+    }
+
+    #[test]
+    fn component_tree_builds_vertical_layout_for_children() {
+        let tree = ComponentTree::new(
+            ComponentNode::new(Box::new(StubComponent::new("root", EventResult::Ignored)))
+                .with_children(vec![
+                    ComponentNode::new(Box::new(StubComponent::new("top", EventResult::Ignored))),
+                    ComponentNode::new(Box::new(StubComponent::new(
+                        "bottom",
+                        EventResult::Ignored,
+                    ))),
+                ]),
+        );
+
+        let layout = tree.layout(&LayoutContext, Rect::new(0, 0, 8, 4));
+
+        assert_eq!(layout.area, Rect::new(0, 0, 8, 4));
+        assert_eq!(layout.children.len(), 2);
+        assert_eq!(layout.children[0].area, Rect::new(0, 0, 8, 2));
+        assert_eq!(layout.children[1].area, Rect::new(0, 2, 8, 2));
     }
 
     #[test]

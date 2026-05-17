@@ -4,6 +4,7 @@
 use crate::component::{Component, Frame, LayoutContext, LayoutNode, RenderContext};
 use crate::event::ComponentId;
 use crate::layout::Rect;
+use crate::layout::{split_vertical, Constraint};
 use crate::render::{panel_content_rect, BorderStyle, Padding, Style};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,6 +75,17 @@ impl Component for Panel {
 
     fn layout(&self, _ctx: &LayoutContext, area: Rect) -> LayoutNode {
         LayoutNode::new(self.id(), area)
+    }
+
+    fn child_layout_areas(&self, area: &Rect, child_count: usize) -> Vec<Rect> {
+        if child_count == 0 {
+            return Vec::new();
+        }
+
+        split_vertical(
+            self.content_area(area.clone()),
+            &vec![Constraint::Flex(1); child_count],
+        )
     }
 
     fn render(&self, ctx: &RenderContext, frame: &mut Frame) {
@@ -162,5 +174,17 @@ mod tests {
 
         assert_eq!(node.component_id, ComponentId("container".into()));
         assert_eq!(node.area, area);
+    }
+
+    #[test]
+    fn panel_distributes_children_inside_content_area() {
+        let panel = Panel::new("container");
+
+        let areas = panel.child_layout_areas(&Rect::new(0, 0, 12, 6), 3);
+
+        assert_eq!(areas.len(), 3);
+        assert_eq!(areas[0], Rect::new(1, 1, 10, 1));
+        assert_eq!(areas[1], Rect::new(1, 2, 10, 1));
+        assert_eq!(areas[2], Rect::new(1, 3, 10, 2));
     }
 }
