@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.2.5** - Adicionar contagem estrutural derivada ao `check`
+**TASK-009.2.6** - Resumir propriedades estruturais de layout no `check`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Extended successful `neotui check` output with derived container and leaf counts so the command now reports both composition breadth and structural shape at a glance.
+- Summary: Extended successful `neotui check` output with compact layout-property counts such as gap, align, justify and fixed sizing usage, making layout-heavy fixtures easier to inspect quickly.
 
 ---
 
 ## Next Task
 
-**TASK-009.2.6** - Resumir propriedades estruturais de layout no `check`
+**TASK-009.2.7** - Adicionar sumário de orientação estrutural ao `check`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.2.5
+- Depends on: TASK-009.2.6
 - Date: 2026-05-17
-- Summary: Extend the success-side summary with compact layout-property inspection, such as how many components use gap, grow or fixed constraints, so `neotui check` becomes more useful when reviewing layout-heavy examples.
+- Summary: Extend the success-side summary with orientation-aware inspection, such as counts for vertical vs horizontal containers, so `neotui check` keeps improving as a compact architecture review tool.
 
 ### Objective
 

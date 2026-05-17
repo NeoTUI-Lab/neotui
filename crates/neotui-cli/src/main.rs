@@ -195,6 +195,7 @@ fn format_check_success(
     let theme = spec.theme.as_deref().unwrap_or("none");
     let kind_counts = collect_kind_counts(&spec.root);
     let metrics = collect_structure_metrics(&spec.root);
+    let layout_prop_counts = collect_layout_prop_counts(&spec.root);
     let component_ids = tree
         .ids_depth_first()
         .into_iter()
@@ -205,10 +206,16 @@ fn format_check_success(
         .map(|(kind, count)| format!("{kind}={count}"))
         .collect::<Vec<_>>()
         .join(", ");
+    let layout_prop_preview = layout_prop_counts
+        .into_iter()
+        .filter(|(_, count)| *count > 0)
+        .map(|(prop, count)| format!("{prop}={count}"))
+        .collect::<Vec<_>>()
+        .join(", ");
     let component_preview = component_ids.join(", ");
 
     format!(
-        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\ncomponent_count: {}\nmax_depth: {}\ncontainer_components: {}\nleaf_components: {}\ncomponent_kinds: [{}]\ncomponent_ids: [{}]\nphases: parse, validate, instantiate",
+        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\ncomponent_count: {}\nmax_depth: {}\ncontainer_components: {}\nleaf_components: {}\nlayout_props: [{}]\ncomponent_kinds: [{}]\ncomponent_ids: [{}]\nphases: parse, validate, instantiate",
         path.display(),
         display_format(format),
         spec.schema_version,
@@ -218,6 +225,7 @@ fn format_check_success(
         tree.max_depth(),
         metrics.container_components,
         metrics.leaf_components,
+        layout_prop_preview,
         kind_preview,
         component_preview
     )
@@ -267,6 +275,54 @@ fn collect_structure_metrics(root: &neotui_core::dsl::ComponentSpec) -> Structur
     }
 
     visit(root)
+}
+
+fn collect_layout_prop_counts(
+    root: &neotui_core::dsl::ComponentSpec,
+) -> BTreeMap<&'static str, usize> {
+    fn visit(
+        component: &neotui_core::dsl::ComponentSpec,
+        counts: &mut BTreeMap<&'static str, usize>,
+    ) {
+        let has_fixed =
+            component.props.contains_key("width") || component.props.contains_key("height");
+        let has_percent =
+            component.props.contains_key("width_pct") || component.props.contains_key("height_pct");
+
+        if component.props.contains_key("gap") {
+            *counts.entry("gap").or_insert(0) += 1;
+        }
+        if component.props.contains_key("grow") {
+            *counts.entry("grow").or_insert(0) += 1;
+        }
+        if has_fixed {
+            *counts.entry("fixed").or_insert(0) += 1;
+        }
+        if has_percent {
+            *counts.entry("percent").or_insert(0) += 1;
+        }
+        if component.props.contains_key("align") {
+            *counts.entry("align").or_insert(0) += 1;
+        }
+        if component.props.contains_key("justify") {
+            *counts.entry("justify").or_insert(0) += 1;
+        }
+
+        for child in &component.children {
+            visit(child, counts);
+        }
+    }
+
+    let mut counts = BTreeMap::from([
+        ("align", 0),
+        ("fixed", 0),
+        ("gap", 0),
+        ("grow", 0),
+        ("justify", 0),
+        ("percent", 0),
+    ]);
+    visit(root, &mut counts);
+    counts
 }
 
 fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
@@ -448,6 +504,7 @@ text = "Hello"
         assert!(output.contains("max_depth: 1"));
         assert!(output.contains("container_components: 0"));
         assert!(output.contains("leaf_components: 1"));
+        assert!(output.contains("layout_props: [align=1]"));
         assert!(output.contains("component_kinds: [Label=1]"));
         assert!(output.contains("component_ids: [root]"));
         let _ = fs::remove_file(path);
@@ -633,11 +690,13 @@ kind = "Unknown"
         assert!(layout_output.contains("root: `VBox`"));
         assert!(layout_output.contains("container_components: 2"));
         assert!(layout_output.contains("leaf_components: 3"));
+        assert!(layout_output.contains("layout_props: [align=5, fixed=3, gap=2, justify=1]"));
         assert!(layout_output.contains("component_kinds: [HBox=1, Label=3, VBox=1]"));
         assert!(showcase_output.contains("root: `Panel`"));
         assert!(showcase_output.contains("component_count: 9"));
         assert!(showcase_output.contains("container_components: 3"));
         assert!(showcase_output.contains("leaf_components: 6"));
+        assert!(showcase_output.contains("layout_props: [align=7, fixed=5, gap=2, justify=1]"));
         assert!(showcase_output
             .contains("component_kinds: [Divider=1, HBox=1, Label=5, Panel=1, VBox=1]"));
     }
