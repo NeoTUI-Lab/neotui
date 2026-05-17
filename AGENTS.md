@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.1.7** - Consolidar showcase de layout declarativo no fluxo `run`
+**TASK-009.2.1** - Reforçar diagnósticos do comando `check`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Added a richer canonical DSL showcase that exercises `Panel`, `VBox`, `HBox`, gap, constraints, align and justify together, then tied it to parser, registry and CLI render tests so the current `run` layout slice is covered by a stable executable example.
+- Summary: Centralized DSL loading failures into structured CLI diagnostics so `neotui check` now gives more actionable messages for unsupported formats, parse failures, validation errors and runtime instantiation gaps, with tests covering each category.
 
 ---
 
 ## Next Task
 
-**TASK-009.2.1** - Reforçar diagnósticos do comando `check`
+**TASK-009.2.2** - Padronizar saída detalhada do comando `check`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.1.7
+- Depends on: TASK-009.2.1
 - Date: 2026-05-17
-- Summary: Improve `neotui check <file>` so validation and instantiation failures surface more actionable guidance now that layout props and container behaviors have expanded.
+- Summary: Refine `neotui check` output formatting so success and failure reports expose phase, format and root/component context more consistently as the validator and registry continue to grow.
 
 ### Objective
 

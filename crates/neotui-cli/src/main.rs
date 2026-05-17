@@ -1,6 +1,7 @@
 // NeoTUI CLI
 // Command-line interface for NeoTUI applications
 
+use std::fmt;
 use std::fs;
 use std::path::Path;
 use std::process::ExitCode;
@@ -68,38 +69,105 @@ struct LoadedApp {
     tree: ComponentTree,
 }
 
-fn load_app(path: &Path) -> Result<LoadedApp, String> {
+#[derive(Debug)]
+enum AppLoadError {
+    UnsupportedFormat {
+        path: String,
+    },
+    Read {
+        path: String,
+        source: std::io::Error,
+    },
+    Parse {
+        path: String,
+        format: DslFormat,
+        source: neotui_core::dsl::DslError,
+    },
+    Validation {
+        path: String,
+        errors: neotui_core::dsl::ValidationErrors,
+    },
+    Instantiation {
+        path: String,
+        source: neotui_core::registry::RegistryError,
+    },
+}
+
+impl fmt::Display for AppLoadError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnsupportedFormat { path } => write!(
+                f,
+                "unsupported DSL format for `{path}`; expected .toml or .json\nhint: rename the file to use a supported extension or convert it to TOML/JSON before running `neotui check`"
+            ),
+            Self::Read { path, source } => write!(
+                f,
+                "failed to read `{path}`: {source}\nhint: confirm the file exists and that the current user can read it"
+            ),
+            Self::Parse {
+                path,
+                format,
+                source,
+            } => write!(
+                f,
+                "invalid {:?} DSL in `{path}`: {source}\nhint: fix the file syntax first, then re-run `neotui check {path}`",
+                format
+            ),
+            Self::Validation { path, errors } => write!(
+                f,
+                "validation failed for `{path}`:\n{errors}\nhint: fix the invalid fields above and re-run `neotui check {path}`"
+            ),
+            Self::Instantiation { path, source } => write!(
+                f,
+                "component instantiation failed for `{path}`: {source}\nhint: use currently executable components such as Panel, Label, Divider, Spacer, VBox and HBox, or implement the missing runtime widget first"
+            ),
+        }
+    }
+}
+
+fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
+    let path_display = path.display().to_string();
     let format = DslFormat::detect_from_path(&path.to_string_lossy()).ok_or_else(|| {
-        format!(
-            "unsupported DSL format for `{}`; expected .toml or .json",
-            path.display()
-        )
+        AppLoadError::UnsupportedFormat {
+            path: path_display.clone(),
+        }
     })?;
 
-    let input = fs::read_to_string(path)
-        .map_err(|source| format!("failed to read `{}`: {source}", path.display()))?;
+    let input = fs::read_to_string(path).map_err(|source| AppLoadError::Read {
+        path: path_display.clone(),
+        source,
+    })?;
 
     let spec = match format {
         DslFormat::Toml => AppSpec::from_toml_str(&input),
         DslFormat::Json => AppSpec::from_json_str(&input),
     }
-    .map_err(|source| format!("invalid DSL in `{}`: {source}", path.display()))?;
+    .map_err(|source| AppLoadError::Parse {
+        path: path_display.clone(),
+        format,
+        source,
+    })?;
 
-    spec.validate()
-        .map_err(|errors| format!("validation failed for `{}`:\n{errors}", path.display()))?;
+    spec.validate().map_err(|errors| AppLoadError::Validation {
+        path: path_display.clone(),
+        errors,
+    })?;
 
     let tree = ComponentRegistry::new()
         .build_tree(&spec)
-        .map_err(|source| format!("failed to instantiate `{}`: {source}", path.display()))?;
+        .map_err(|source| AppLoadError::Instantiation {
+            path: path_display,
+            source,
+        })?;
 
     Ok(LoadedApp { format, spec, tree })
 }
 
 fn check_file(path: &Path) -> Result<String, String> {
-    let LoadedApp { format, spec, .. } = load_app(path)?;
+    let LoadedApp { format, spec, .. } = load_app(path).map_err(|error| error.to_string())?;
 
     Ok(format!(
-        "check ok: `{}` parsed as {:?} with root `{}`",
+        "check ok: `{}` parsed as {:?}, validated, and instantiable with root `{}`",
         path.display(),
         format,
         spec.root.kind
@@ -107,7 +175,7 @@ fn check_file(path: &Path) -> Result<String, String> {
 }
 
 fn run_file(path: &Path) -> Result<(), String> {
-    let LoadedApp { mut tree, .. } = load_app(path)?;
+    let LoadedApp { mut tree, .. } = load_app(path).map_err(|error| error.to_string())?;
     let renderer = AnsiRenderer::new();
     let mut terminal = TerminalSession::new();
     let mut runtime = AppRuntime::new();
@@ -257,6 +325,7 @@ text = "Hello"
         let error = check_file(&path).expect_err("yaml should not be accepted yet");
 
         assert!(error.contains("unsupported DSL format"));
+        assert!(error.contains("rename the file"));
         let _ = fs::remove_file(path);
     }
 
@@ -279,6 +348,46 @@ text = "Hello"
 
         assert!(error.contains("validation failed"));
         assert!(error.contains("root.props.text"));
+        assert!(error.contains("fix the invalid fields"));
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn check_file_rejects_invalid_syntax_with_actionable_hint() {
+        let path = write_temp_file(
+            "toml",
+            r#"
+schema_version = "0.1"
+
+[root
+kind = "Label"
+"#,
+        );
+
+        let error = check_file(&path).expect_err("invalid syntax should fail parsing");
+
+        assert!(error.contains("invalid Toml DSL"));
+        assert!(error.contains("fix the file syntax first"));
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn check_file_rejects_unimplemented_component_with_runtime_guidance() {
+        let path = write_temp_file(
+            "toml",
+            r#"
+schema_version = "0.1"
+
+[root]
+kind = "Button"
+"#,
+        );
+
+        let error = check_file(&path).expect_err("button should fail instantiation");
+
+        assert!(error.contains("component instantiation failed"));
+        assert!(error.contains("known but not implemented yet"));
+        assert!(error.contains("Panel, Label, Divider, Spacer, VBox and HBox"));
         let _ = fs::remove_file(path);
     }
 
