@@ -11,4 +11,4 @@ pub use divider::{Divider, DividerOrientation};
 pub use label::Label;
 pub use panel::Panel;
 pub use spacer::Spacer;
-pub use stack::{Stack, StackDirection};
+pub use stack::{Stack, StackAlign, StackDirection, StackJustify};

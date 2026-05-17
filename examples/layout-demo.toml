@@ -7,6 +7,7 @@ id = "layout-demo"
 
 [root.props]
 gap = 1
+align = "center"
 
 [[root.children]]
 kind = "Label"
@@ -15,6 +16,7 @@ id = "header"
 [root.children.props]
 text = "Layout Demo"
 align = "center"
+width = 10
 height = 1
 
 [[root.children]]
@@ -23,6 +25,8 @@ id = "columns"
 
 [root.children.props]
 gap = 2
+justify = "center"
+align = "end"
 
 [[root.children.children]]
 kind = "Label"
@@ -31,7 +35,8 @@ id = "left-column"
 [root.children.children.props]
 text = "Left"
 align = "center"
-width = 6
+width = 4
+height = 1
 
 [[root.children.children]]
 kind = "Label"
@@ -40,4 +45,5 @@ id = "right-column"
 [root.children.children.props]
 text = "Right"
 align = "center"
-grow = 2
+width = 4
+height = 1

@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.1.5** - Permitir constraints básicas declarativas nos containers
+**TASK-009.1.6** - Refinar alinhamento e distribuição em containers declarativos
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Added child-level layout hints for `width`, `height`, `width_pct`, `height_pct` and `grow`, validated them in the DSL, wired them through the registry into runtime layout hints, and taught stack containers to honor fixed, percentage and weighted constraints during `run`.
+- Summary: Added `align` and `justify` props to `VBox`/`HBox`, validated them in the DSL, wired them through registry instantiation, and taught stack layout to place constrained children with start/center/end/stretch behavior in the runtime path.
 
 ---
 
 ## Next Task
 
-**TASK-009.1.6** - Refinar alinhamento e distribuição em containers declarativos
+**TASK-009.1.7** - Consolidar showcase de layout declarativo no fluxo `run`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.1.5
+- Depends on: TASK-009.1.6
 - Date: 2026-05-17
-- Summary: Extend the container DSL/runtime with alignment or justify options so `VBox`/`HBox` can place constrained children more intentionally once fixed, percentage and grow-based sizing are already available.
+- Summary: Use the now-available gap, constraints, align and justify features to stabilize one richer canonical layout example and close the current `run` layout slice before moving focus fully to richer widgets and interaction.
 
 ### Objective
 

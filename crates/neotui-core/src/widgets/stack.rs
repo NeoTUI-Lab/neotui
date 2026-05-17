@@ -11,11 +11,28 @@ pub enum StackDirection {
     Horizontal,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StackAlign {
+    Start,
+    Center,
+    End,
+    Stretch,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StackJustify {
+    Start,
+    Center,
+    End,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Stack {
     id: ComponentId,
     direction: StackDirection,
     gap: u16,
+    align: StackAlign,
+    justify: StackJustify,
 }
 
 impl Stack {
@@ -24,6 +41,8 @@ impl Stack {
             id: ComponentId(id.into()),
             direction: StackDirection::Vertical,
             gap: 0,
+            align: StackAlign::Stretch,
+            justify: StackJustify::Start,
         }
     }
 
@@ -32,6 +51,8 @@ impl Stack {
             id: ComponentId(id.into()),
             direction: StackDirection::Horizontal,
             gap: 0,
+            align: StackAlign::Stretch,
+            justify: StackJustify::Start,
         }
     }
 
@@ -45,6 +66,24 @@ impl Stack {
 
     pub fn with_gap(mut self, gap: u16) -> Self {
         self.gap = gap;
+        self
+    }
+
+    pub fn align(&self) -> StackAlign {
+        self.align
+    }
+
+    pub fn with_align(mut self, align: StackAlign) -> Self {
+        self.align = align;
+        self
+    }
+
+    pub fn justify(&self) -> StackJustify {
+        self.justify
+    }
+
+    pub fn with_justify(mut self, justify: StackJustify) -> Self {
+        self.justify = justify;
         self
     }
 }
@@ -101,33 +140,134 @@ impl Component for Stack {
             StackDirection::Horizontal => split_horizontal(available_area, &constraints),
         };
 
+        let main_axis = axis;
+        let cross_axis = match axis {
+            Axis::Vertical => Axis::Horizontal,
+            Axis::Horizontal => Axis::Vertical,
+        };
+        let total_main_used = base_areas.iter().fold(total_gap, |used, rect| {
+            used.saturating_add(match main_axis {
+                Axis::Vertical => rect.height,
+                Axis::Horizontal => rect.width,
+            })
+        });
+        let available_main = match main_axis {
+            Axis::Vertical => area.height,
+            Axis::Horizontal => area.width,
+        };
+        let justify_offset = match self.justify {
+            StackJustify::Start => 0,
+            StackJustify::Center => available_main.saturating_sub(total_main_used) / 2,
+            StackJustify::End => available_main.saturating_sub(total_main_used),
+        };
+
         base_areas
             .into_iter()
             .enumerate()
-            .map(|(index, rect)| match self.direction {
-                StackDirection::Vertical => Rect::new(
-                    rect.x,
-                    rect.y.saturating_add(
-                        self.gap
-                            .saturating_mul(u16::try_from(index).unwrap_or(u16::MAX)),
+            .map(|(index, rect)| {
+                let rect = match self.direction {
+                    StackDirection::Vertical => Rect::new(
+                        rect.x,
+                        rect.y
+                            .saturating_add(
+                                self.gap
+                                    .saturating_mul(u16::try_from(index).unwrap_or(u16::MAX)),
+                            )
+                            .saturating_add(justify_offset),
+                        rect.width,
+                        rect.height,
                     ),
-                    rect.width,
-                    rect.height,
-                ),
-                StackDirection::Horizontal => Rect::new(
-                    rect.x.saturating_add(
-                        self.gap
-                            .saturating_mul(u16::try_from(index).unwrap_or(u16::MAX)),
+                    StackDirection::Horizontal => Rect::new(
+                        rect.x
+                            .saturating_add(
+                                self.gap
+                                    .saturating_mul(u16::try_from(index).unwrap_or(u16::MAX)),
+                            )
+                            .saturating_add(justify_offset),
+                        rect.y,
+                        rect.width,
+                        rect.height,
                     ),
-                    rect.y,
-                    rect.width,
-                    rect.height,
-                ),
+                };
+
+                align_rect_for_child(
+                    rect,
+                    area,
+                    cross_axis,
+                    self.align,
+                    children[index]
+                        .layout_hints()
+                        .constraint_for_axis(cross_axis),
+                )
             })
             .collect()
     }
 
     fn render(&self, _ctx: &RenderContext, _frame: &mut Frame) {}
+}
+
+impl Default for StackAlign {
+    fn default() -> Self {
+        Self::Stretch
+    }
+}
+
+impl Default for StackJustify {
+    fn default() -> Self {
+        Self::Start
+    }
+}
+
+fn align_rect_for_child(
+    rect: Rect,
+    parent: &Rect,
+    cross_axis: Axis,
+    align: StackAlign,
+    cross_constraint: Option<Constraint>,
+) -> Rect {
+    let requested_cross = match cross_constraint {
+        Some(Constraint::Fixed(value)) => Some(value),
+        Some(Constraint::Percentage(percent)) => Some(match cross_axis {
+            Axis::Horizontal => {
+                ((u32::from(parent.width) * u32::from(percent.min(100))) / 100) as u16
+            }
+            Axis::Vertical => {
+                ((u32::from(parent.height) * u32::from(percent.min(100))) / 100) as u16
+            }
+        }),
+        Some(Constraint::Flex(_)) | None => None,
+    };
+
+    match cross_axis {
+        Axis::Horizontal => {
+            let width = match align {
+                StackAlign::Stretch => rect.width,
+                _ => requested_cross.unwrap_or(rect.width).min(rect.width),
+            };
+            let x = match align {
+                StackAlign::Start | StackAlign::Stretch => rect.x,
+                StackAlign::Center => rect.x.saturating_add(rect.width.saturating_sub(width) / 2),
+                StackAlign::End => rect.x.saturating_add(rect.width.saturating_sub(width)),
+            };
+
+            Rect::new(x, rect.y, width, rect.height)
+        }
+        Axis::Vertical => {
+            let height = match align {
+                StackAlign::Stretch => rect.height,
+                _ => requested_cross.unwrap_or(rect.height).min(rect.height),
+            };
+            let y = match align {
+                StackAlign::Start | StackAlign::Stretch => rect.y,
+                StackAlign::Center => rect
+                    .y
+                    .saturating_add(rect.height.saturating_sub(height) / 2),
+                StackAlign::End => rect.y.saturating_add(rect.height.saturating_sub(height)),
+            };
+
+            Rect::new(rect.x, y, rect.width, height)
+        }
+    }
 }
 
 #[cfg(test)]
@@ -244,5 +384,42 @@ mod tests {
         let areas = stack.child_layout_areas(&Rect::new(0, 0, 8, 8), &children);
 
         assert_eq!(areas, vec![Rect::new(0, 0, 8, 2), Rect::new(0, 2, 8, 6)]);
+    }
+
+    #[test]
+    fn stack_justifies_children_at_center() {
+        let stack = Stack::horizontal("layout").with_justify(StackJustify::Center);
+        let children = vec![
+            ComponentNode::new(Box::new(Stack::horizontal("left"))).with_layout_hints(
+                crate::component::LayoutHints {
+                    width: Some(2),
+                    ..crate::component::LayoutHints::default()
+                },
+            ),
+            ComponentNode::new(Box::new(Stack::horizontal("right"))).with_layout_hints(
+                crate::component::LayoutHints {
+                    width: Some(2),
+                    ..crate::component::LayoutHints::default()
+                },
+            ),
+        ];
+
+        let areas = stack.child_layout_areas(&Rect::new(0, 0, 10, 2), &children);
+
+        assert_eq!(areas, vec![Rect::new(3, 0, 2, 2), Rect::new(5, 0, 2, 2)]);
+    }
+
+    #[test]
+    fn stack_aligns_children_on_cross_axis() {
+        let stack = Stack::vertical("layout").with_align(StackAlign::Center);
+        let children = vec![ComponentNode::new(Box::new(Stack::vertical("child")))
+            .with_layout_hints(crate::component::LayoutHints {
+                width: Some(4),
+                ..crate::component::LayoutHints::default()
+            })];
+
+        let areas = stack.child_layout_areas(&Rect::new(0, 0, 10, 4), &children);
+
+        assert_eq!(areas, vec![Rect::new(3, 0, 4, 4)]);
     }
 }

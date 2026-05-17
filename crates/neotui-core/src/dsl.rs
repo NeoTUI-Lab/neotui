@@ -266,6 +266,20 @@ impl DslValidator {
             }
             "VBox" | "HBox" => {
                 validate_optional_non_negative_integer_prop(component, path, "gap", errors);
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "align",
+                    &["start", "center", "end", "stretch"],
+                    errors,
+                );
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "justify",
+                    &["start", "center", "end"],
+                    errors,
+                );
             }
             "Panel" => {
                 validate_optional_string_prop(component, path, "title", errors);
@@ -785,7 +799,11 @@ align = "center"
             root: ComponentSpec {
                 kind: "HBox".into(),
                 id: None,
-                props: BTreeMap::from([("gap".into(), Value::Integer(1))]),
+                props: BTreeMap::from([
+                    ("gap".into(), Value::Integer(1)),
+                    ("align".into(), Value::String("center".into())),
+                    ("justify".into(), Value::String("end".into())),
+                ]),
                 children: vec![
                     ComponentSpec {
                         kind: "Label".into(),
@@ -837,6 +855,35 @@ align = "center"
         assert!(rendered
             .contains("root.props.width_pct: property `width_pct` must be between 0 and 100"));
         assert!(rendered.contains("root.props.grow: property `grow` must be greater than zero"));
+    }
+
+    #[test]
+    fn validator_rejects_invalid_stack_align_and_justify_props() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "VBox".into(),
+                id: None,
+                props: BTreeMap::from([
+                    ("align".into(), Value::String("diagonal".into())),
+                    ("justify".into(), Value::String("space-around".into())),
+                ]),
+                children: Vec::new(),
+            },
+        };
+
+        let errors = spec
+            .validate()
+            .expect_err("invalid stack alignment props should fail");
+        let rendered = errors.to_string();
+
+        assert!(rendered.contains(
+            "root.props.align: property `align` must be one of: start, center, end, stretch (got `diagonal`)"
+        ));
+        assert!(rendered.contains(
+            "root.props.justify: property `justify` must be one of: start, center, end (got `space-around`)"
+        ));
     }
 
     #[test]

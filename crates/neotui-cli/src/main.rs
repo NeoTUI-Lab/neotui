@@ -371,10 +371,10 @@ kind = "Unknown"
         let mut frame = ScreenBuffer::new(20, 4);
         let layout = tree.layout(&LayoutContext, area);
 
-        assert_eq!(layout.children[0].area, Rect::new(0, 0, 20, 1));
+        assert_eq!(layout.children[0].area, Rect::new(5, 0, 10, 1));
         assert_eq!(layout.children[1].area, Rect::new(0, 2, 20, 2));
-        assert_eq!(layout.children[1].children[0].area, Rect::new(0, 2, 6, 2));
-        assert_eq!(layout.children[1].children[1].area, Rect::new(8, 2, 12, 2));
+        assert_eq!(layout.children[1].children[0].area, Rect::new(5, 3, 4, 1));
+        assert_eq!(layout.children[1].children[1].area, Rect::new(11, 3, 4, 1));
 
         tree.render_with_layout(&layout, &mut frame);
 
@@ -385,7 +385,7 @@ kind = "Unknown"
             .map(|x| frame.get(x, 1).map(|cell| cell.symbol).unwrap_or(' '))
             .collect();
         let columns_row: String = (0..20)
-            .map(|x| frame.get(x, 2).map(|cell| cell.symbol).unwrap_or(' '))
+            .map(|x| frame.get(x, 3).map(|cell| cell.symbol).unwrap_or(' '))
             .collect();
 
         assert!(header_row.contains("Layout Demo"));

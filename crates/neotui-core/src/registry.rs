@@ -6,7 +6,9 @@ use std::fmt;
 use crate::component::{ComponentNode, ComponentTree, LayoutHints};
 use crate::dsl::{AppSpec, ComponentSpec, Value};
 use crate::render::TextAlign;
-use crate::widgets::{Divider, DividerOrientation, Label, Panel, Spacer, Stack};
+use crate::widgets::{
+    Divider, DividerOrientation, Label, Panel, Spacer, Stack, StackAlign, StackJustify,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ComponentRegistry;
@@ -78,11 +80,25 @@ impl ComponentRegistry {
             "Spacer" => Ok(Box::new(Spacer::new(id))),
             "VBox" => {
                 let gap = optional_u16(spec, path, "gap")?.unwrap_or(0);
-                Ok(Box::new(Stack::vertical(id).with_gap(gap)))
+                let align = optional_stack_align(spec, path)?.unwrap_or_default();
+                let justify = optional_stack_justify(spec, path)?.unwrap_or_default();
+                Ok(Box::new(
+                    Stack::vertical(id)
+                        .with_gap(gap)
+                        .with_align(align)
+                        .with_justify(justify),
+                ))
             }
             "HBox" => {
                 let gap = optional_u16(spec, path, "gap")?.unwrap_or(0);
-                Ok(Box::new(Stack::horizontal(id).with_gap(gap)))
+                let align = optional_stack_align(spec, path)?.unwrap_or_default();
+                let justify = optional_stack_justify(spec, path)?.unwrap_or_default();
+                Ok(Box::new(
+                    Stack::horizontal(id)
+                        .with_gap(gap)
+                        .with_align(align)
+                        .with_justify(justify),
+                ))
             }
             "TextBlock" | "Button" | "List" | "Graph" => {
                 Err(RegistryError::UnimplementedComponent {
@@ -328,6 +344,59 @@ fn layout_hints_from_spec(spec: &ComponentSpec, path: &str) -> Result<LayoutHint
     })
 }
 
+fn optional_stack_align(
+    spec: &ComponentSpec,
+    path: &str,
+) -> Result<Option<StackAlign>, RegistryError> {
+    match spec.props.get("align") {
+        Some(Value::String(value)) => match value.as_str() {
+            "start" => Ok(Some(StackAlign::Start)),
+            "center" => Ok(Some(StackAlign::Center)),
+            "end" => Ok(Some(StackAlign::End)),
+            "stretch" => Ok(Some(StackAlign::Stretch)),
+            _ => Err(RegistryError::InvalidPropertyValue {
+                path: path.into(),
+                property: "align".into(),
+                message: format!(
+                    "property `align` must be one of: start, center, end, stretch (got `{value}`)"
+                ),
+            }),
+        },
+        Some(_) => Err(RegistryError::InvalidPropertyType {
+            path: path.into(),
+            property: "align".into(),
+            expected: "a string".into(),
+        }),
+        None => Ok(None),
+    }
+}
+
+fn optional_stack_justify(
+    spec: &ComponentSpec,
+    path: &str,
+) -> Result<Option<StackJustify>, RegistryError> {
+    match spec.props.get("justify") {
+        Some(Value::String(value)) => match value.as_str() {
+            "start" => Ok(Some(StackJustify::Start)),
+            "center" => Ok(Some(StackJustify::Center)),
+            "end" => Ok(Some(StackJustify::End)),
+            _ => Err(RegistryError::InvalidPropertyValue {
+                path: path.into(),
+                property: "justify".into(),
+                message: format!(
+                    "property `justify` must be one of: start, center, end (got `{value}`)"
+                ),
+            }),
+        },
+        Some(_) => Err(RegistryError::InvalidPropertyType {
+            path: path.into(),
+            property: "justify".into(),
+            expected: "a string".into(),
+        }),
+        None => Ok(None),
+    }
+}
+
 fn optional_orientation(
     spec: &ComponentSpec,
     path: &str,
@@ -445,6 +514,46 @@ mod tests {
                 .map(|id| id.0)
                 .collect::<Vec<_>>(),
             vec!["layout", "row", "left", "right"]
+        );
+    }
+
+    #[test]
+    fn registry_applies_stack_alignment_and_justify_props() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "VBox".into(),
+                id: Some("layout".into()),
+                props: BTreeMap::from([
+                    ("align".into(), Value::String("center".into())),
+                    ("justify".into(), Value::String("end".into())),
+                ]),
+                children: vec![ComponentSpec {
+                    kind: "Label".into(),
+                    id: Some("child".into()),
+                    props: BTreeMap::from([
+                        ("text".into(), Value::String("Hello".into())),
+                        ("width".into(), Value::Integer(4)),
+                        ("height".into(), Value::Integer(1)),
+                    ]),
+                    children: Vec::new(),
+                }],
+            },
+        };
+
+        let tree = ComponentRegistry::new()
+            .build_tree(&spec)
+            .expect("stack props should instantiate");
+
+        let layout = tree.layout(
+            &crate::component::LayoutContext,
+            crate::layout::Rect::new(0, 0, 10, 4),
+        );
+
+        assert_eq!(
+            layout.children[0].area,
+            crate::layout::Rect::new(3, 3, 4, 1)
         );
     }
 
