@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.2.6** - Resumir propriedades estruturais de layout no `check`
+**TASK-009.2.7** - Adicionar sumário de orientação estrutural ao `check`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Extended successful `neotui check` output with compact layout-property counts such as gap, align, justify and fixed sizing usage, making layout-heavy fixtures easier to inspect quickly.
+- Summary: Extended successful `neotui check` output with orientation-aware structural counts such as vertical, horizontal, framed and separator containers, making the command more useful as a quick architecture review surface.
 
 ---
 
 ## Next Task
 
-**TASK-009.2.7** - Adicionar sumário de orientação estrutural ao `check`
+**TASK-009.2.8** - Destacar componentes mais recorrentes no `check`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.2.6
+- Depends on: TASK-009.2.7
 - Date: 2026-05-17
-- Summary: Extend the success-side summary with orientation-aware inspection, such as counts for vertical vs horizontal containers, so `neotui check` keeps improving as a compact architecture review tool.
+- Summary: Extend the success-side summary with a compact “dominant component kinds” hint so `neotui check` can quickly reveal the main composition pattern of a DSL file.
 
 ### Objective
 
