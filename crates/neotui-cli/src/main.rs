@@ -6,7 +6,14 @@ use std::path::Path;
 use std::process::ExitCode;
 
 use clap::{Parser, Subcommand};
+use crossterm::terminal;
+use neotui_core::component::{ComponentTree, EventContext, RenderContext};
 use neotui_core::dsl::{AppSpec, DslFormat};
+use neotui_core::event::{Command as AppCommand, Event, EventResult};
+use neotui_core::layout::Rect;
+use neotui_core::registry::ComponentRegistry;
+use neotui_core::render::{AnsiRenderer, ScreenBuffer};
+use neotui_core::runtime::{panic, AppRuntime, TerminalSession};
 
 #[derive(Debug, Parser)]
 #[command(name = "neotui", version, about = "NeoTUI command-line interface")]
@@ -17,6 +24,8 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
+    /// Execute a NeoTUI DSL file in the terminal runtime
+    Run { file: String },
     /// Parse and validate a NeoTUI DSL file
     Check { file: String },
 }
@@ -33,6 +42,13 @@ where
     let cli = Cli::parse_from(args);
 
     match cli.command {
+        Command::Run { file } => match run_file(Path::new(&file)) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(message) => {
+                eprintln!("{message}");
+                ExitCode::from(1)
+            }
+        },
         Command::Check { file } => match check_file(Path::new(&file)) {
             Ok(summary) => {
                 println!("{summary}");
@@ -46,7 +62,13 @@ where
     }
 }
 
-fn check_file(path: &Path) -> Result<String, String> {
+struct LoadedApp {
+    format: DslFormat,
+    spec: AppSpec,
+    tree: ComponentTree,
+}
+
+fn load_app(path: &Path) -> Result<LoadedApp, String> {
     let format = DslFormat::detect_from_path(&path.to_string_lossy()).ok_or_else(|| {
         format!(
             "unsupported DSL format for `{}`; expected .toml or .json",
@@ -66,12 +88,94 @@ fn check_file(path: &Path) -> Result<String, String> {
     spec.validate()
         .map_err(|errors| format!("validation failed for `{}`:\n{errors}", path.display()))?;
 
+    let tree = ComponentRegistry::new()
+        .build_tree(&spec)
+        .map_err(|source| format!("failed to instantiate `{}`: {source}", path.display()))?;
+
+    Ok(LoadedApp { format, spec, tree })
+}
+
+fn check_file(path: &Path) -> Result<String, String> {
+    let LoadedApp { format, spec, .. } = load_app(path)?;
+
     Ok(format!(
         "check ok: `{}` parsed as {:?} with root `{}`",
         path.display(),
         format,
         spec.root.kind
     ))
+}
+
+fn run_file(path: &Path) -> Result<(), String> {
+    let LoadedApp { mut tree, .. } = load_app(path)?;
+    let renderer = AnsiRenderer::new();
+    let mut terminal = TerminalSession::new();
+    let mut runtime = AppRuntime::new();
+    let mut viewport = terminal::size()
+        .map_err(|source| format!("failed to read terminal size before startup: {source}"))?;
+    let mut render_error = None;
+
+    panic::install_panic_hook();
+    terminal
+        .enter()
+        .map_err(|source| format!("failed to enter terminal session: {source}"))?;
+
+    render_tree(&tree, viewport, &renderer)
+        .map_err(|source| format!("failed to render `{}`: {source}", path.display()))?;
+
+    let runtime_result = runtime.run(|event| {
+        let mut event_ctx = EventContext::default();
+        let result = tree.dispatch_event(&mut event_ctx, &event);
+
+        if let Event::Resize { width, height } = &event {
+            viewport = (width, height);
+        }
+
+        if result.requests_render() || event.requests_render() {
+            if let Err(source) = render_tree(&tree, viewport, &renderer) {
+                render_error = Some(source);
+                return EventResult::Command(AppCommand::Quit);
+            }
+        }
+
+        result
+    });
+
+    let exit_result = terminal.exit();
+
+    if let Err(source) = runtime_result {
+        return Err(format!(
+            "runtime failure while running `{}`: {source}",
+            path.display()
+        ));
+    }
+
+    if let Some(source) = render_error {
+        return Err(format!(
+            "failed to render updated frame for `{}`: {source}",
+            path.display()
+        ));
+    }
+
+    exit_result.map_err(|source| {
+        format!(
+            "failed to restore terminal after running `{}`: {source}",
+            path.display()
+        )
+    })
+}
+
+fn render_tree(
+    tree: &ComponentTree,
+    viewport: (u16, u16),
+    renderer: &AnsiRenderer,
+) -> std::io::Result<()> {
+    let area = Rect::new(0, 0, viewport.0, viewport.1);
+    let mut frame = ScreenBuffer::new(viewport.0, viewport.1);
+    let ctx = RenderContext::new(area);
+
+    tree.render(&ctx, &mut frame);
+    renderer.render_to_stdout(&frame)
 }
 
 #[cfg(test)]
@@ -94,7 +198,18 @@ mod tests {
         let cli = Cli::parse_from(["neotui", "check", "examples/hello.toml"]);
 
         match cli.command {
+            Command::Run { .. } => panic!("unexpected run command"),
             Command::Check { file } => assert_eq!(file, "examples/hello.toml"),
+        }
+    }
+
+    #[test]
+    fn clap_parses_run_command() {
+        let cli = Cli::parse_from(["neotui", "run", "examples/hello.toml"]);
+
+        match cli.command {
+            Command::Run { file } => assert_eq!(file, "examples/hello.toml"),
+            Command::Check { .. } => panic!("unexpected check command"),
         }
     }
 
@@ -117,6 +232,22 @@ text = "Hello"
 
         assert!(output.contains("check ok:"));
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn load_app_builds_component_tree_for_valid_fixture() {
+        let app = load_app(Path::new("examples/hello.toml")).expect("hello fixture should load");
+
+        assert_eq!(app.format, DslFormat::Toml);
+        assert_eq!(app.spec.root.kind, "Label");
+        assert_eq!(
+            app.tree
+                .ids_depth_first()
+                .into_iter()
+                .map(|id| id.0)
+                .collect::<Vec<_>>(),
+            vec!["root"]
+        );
     }
 
     #[test]
@@ -165,12 +296,28 @@ kind = "Unknown"
 
         let exit = run([
             "neotui".to_string(),
-            "check".to_string(),
+            "run".to_string(),
             path.to_string_lossy().to_string(),
         ]);
 
         assert_eq!(exit, ExitCode::from(1));
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn render_tree_draws_hello_fixture_text() {
+        let LoadedApp { tree, .. } =
+            load_app(Path::new("examples/hello.toml")).expect("hello fixture should load");
+        let area = Rect::new(0, 0, 20, 3);
+        let mut frame = ScreenBuffer::new(20, 3);
+
+        tree.render(&RenderContext::new(area), &mut frame);
+
+        let rendered_row: String = (0..20)
+            .map(|x| frame.get(x, 1).map(|cell| cell.symbol).unwrap_or(' '))
+            .collect();
+
+        assert!(rendered_row.contains("Hello NeoTUI"));
     }
 
     #[test]
