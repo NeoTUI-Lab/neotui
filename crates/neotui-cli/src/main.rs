@@ -5,6 +5,7 @@ use std::fmt;
 use std::fs;
 use std::path::Path;
 use std::process::ExitCode;
+use std::{collections::BTreeMap, ffi::OsString};
 
 use clap::{Parser, Subcommand};
 use crossterm::terminal;
@@ -38,7 +39,7 @@ fn main() -> ExitCode {
 fn run<I, T>(args: I) -> ExitCode
 where
     I: IntoIterator<Item = T>,
-    T: Into<std::ffi::OsString> + Clone,
+    T: Into<OsString> + Clone,
 {
     let cli = Cli::parse_from(args);
 
@@ -192,15 +193,21 @@ fn format_check_success(
     tree: &ComponentTree,
 ) -> String {
     let theme = spec.theme.as_deref().unwrap_or("none");
+    let kind_counts = collect_kind_counts(&spec.root);
     let component_ids = tree
         .ids_depth_first()
         .into_iter()
         .map(|id| id.0)
         .collect::<Vec<_>>();
+    let kind_preview = kind_counts
+        .into_iter()
+        .map(|(kind, count)| format!("{kind}={count}"))
+        .collect::<Vec<_>>()
+        .join(", ");
     let component_preview = component_ids.join(", ");
 
     format!(
-        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\ncomponent_count: {}\nmax_depth: {}\ncomponent_ids: [{}]\nphases: parse, validate, instantiate",
+        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\ncomponent_count: {}\nmax_depth: {}\ncomponent_kinds: [{}]\ncomponent_ids: [{}]\nphases: parse, validate, instantiate",
         path.display(),
         display_format(format),
         spec.schema_version,
@@ -208,8 +215,23 @@ fn format_check_success(
         spec.root.kind,
         tree.component_count(),
         tree.max_depth(),
+        kind_preview,
         component_preview
     )
+}
+
+fn collect_kind_counts(root: &neotui_core::dsl::ComponentSpec) -> BTreeMap<String, usize> {
+    fn visit(component: &neotui_core::dsl::ComponentSpec, counts: &mut BTreeMap<String, usize>) {
+        *counts.entry(component.kind.clone()).or_insert(0) += 1;
+
+        for child in &component.children {
+            visit(child, counts);
+        }
+    }
+
+    let mut counts = BTreeMap::new();
+    visit(root, &mut counts);
+    counts
 }
 
 fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
@@ -389,6 +411,7 @@ text = "Hello"
         assert!(output.contains("root: `Label`"));
         assert!(output.contains("component_count: 1"));
         assert!(output.contains("max_depth: 1"));
+        assert!(output.contains("component_kinds: [Label=1]"));
         assert!(output.contains("component_ids: [root]"));
         let _ = fs::remove_file(path);
     }
@@ -571,8 +594,11 @@ kind = "Unknown"
         assert!(json_output.contains("root: `Panel`"));
         assert!(theme_output.contains("root: `Panel`"));
         assert!(layout_output.contains("root: `VBox`"));
+        assert!(layout_output.contains("component_kinds: [HBox=1, Label=3, VBox=1]"));
         assert!(showcase_output.contains("root: `Panel`"));
         assert!(showcase_output.contains("component_count: 9"));
+        assert!(showcase_output
+            .contains("component_kinds: [Divider=1, HBox=1, Label=5, Panel=1, VBox=1]"));
     }
 
     #[test]

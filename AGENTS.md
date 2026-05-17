@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.2.3** - Enriquecer sumário e contexto de sucesso do `check`
+**TASK-009.2.4** - Expandir inspeção estrutural do comando `check`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Extended successful `neotui check` output with fast inspection context such as component count, maximum tree depth and the instantiated component id list, making the command more useful as a compact structural summary.
+- Summary: Extended successful `neotui check` output with per-kind component counts so the command now doubles as a compact structural inspection view for DSL fixtures and showcases.
 
 ---
 
 ## Next Task
 
-**TASK-009.2.4** - Expandir inspeção estrutural do comando `check`
+**TASK-009.2.5** - Adicionar contagem estrutural derivada ao `check`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.2.3
+- Depends on: TASK-009.2.4
 - Date: 2026-05-17
-- Summary: Extend the success-side summary further with per-kind counts or related structural context so `neotui check` can serve as a stronger inspection command while the runtime widget set continues to grow.
+- Summary: Extend the success-side summary with derived structural metrics such as container vs leaf counts so `neotui check` keeps gaining inspection value without becoming a full debug dump.
 
 ### Objective
 
