@@ -1,7 +1,7 @@
 // Panel widget
 // Renders a bordered container and exposes its inner content area
 
-use crate::component::{Component, Frame, LayoutContext, LayoutNode, RenderContext};
+use crate::component::{Component, ComponentNode, Frame, LayoutContext, LayoutNode, RenderContext};
 use crate::event::ComponentId;
 use crate::layout::Rect;
 use crate::layout::{split_vertical, Constraint};
@@ -77,14 +77,14 @@ impl Component for Panel {
         LayoutNode::new(self.id(), area)
     }
 
-    fn child_layout_areas(&self, area: &Rect, child_count: usize) -> Vec<Rect> {
-        if child_count == 0 {
+    fn child_layout_areas(&self, area: &Rect, children: &[ComponentNode]) -> Vec<Rect> {
+        if children.is_empty() {
             return Vec::new();
         }
 
         split_vertical(
             self.content_area(area.clone()),
-            &vec![Constraint::Flex(1); child_count],
+            &vec![Constraint::Flex(1); children.len()],
         )
     }
 
@@ -180,7 +180,12 @@ mod tests {
     fn panel_distributes_children_inside_content_area() {
         let panel = Panel::new("container");
 
-        let areas = panel.child_layout_areas(&Rect::new(0, 0, 12, 6), 3);
+        let children = vec![
+            ComponentNode::new(Box::new(Panel::new("a"))),
+            ComponentNode::new(Box::new(Panel::new("b"))),
+            ComponentNode::new(Box::new(Panel::new("c"))),
+        ];
+        let areas = panel.child_layout_areas(&Rect::new(0, 0, 12, 6), &children);
 
         assert_eq!(areas.len(), 3);
         assert_eq!(areas[0], Rect::new(1, 1, 10, 1));

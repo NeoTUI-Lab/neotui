@@ -371,6 +371,11 @@ kind = "Unknown"
         let mut frame = ScreenBuffer::new(20, 4);
         let layout = tree.layout(&LayoutContext, area);
 
+        assert_eq!(layout.children[0].area, Rect::new(0, 0, 20, 1));
+        assert_eq!(layout.children[1].area, Rect::new(0, 2, 20, 2));
+        assert_eq!(layout.children[1].children[0].area, Rect::new(0, 2, 6, 2));
+        assert_eq!(layout.children[1].children[1].area, Rect::new(8, 2, 12, 2));
+
         tree.render_with_layout(&layout, &mut frame);
 
         let header_row: String = (0..20)

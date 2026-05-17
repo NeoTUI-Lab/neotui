@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.1.4** - Adicionar distribuição básica configurável aos containers
+**TASK-009.1.5** - Permitir constraints básicas declarativas nos containers
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Added `gap` as a validated container layout prop for `VBox`/`HBox`, wired it through the registry and stack layout logic, and updated the canonical nested layout example so `run` now supports simple configurable spacing between declarative container children.
+- Summary: Added child-level layout hints for `width`, `height`, `width_pct`, `height_pct` and `grow`, validated them in the DSL, wired them through the registry into runtime layout hints, and taught stack containers to honor fixed, percentage and weighted constraints during `run`.
 
 ---
 
 ## Next Task
 
-**TASK-009.1.5** - Permitir constraints básicas declarativas nos containers
+**TASK-009.1.6** - Refinar alinhamento e distribuição em containers declarativos
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.1.4
+- Depends on: TASK-009.1.5
 - Date: 2026-05-17
-- Summary: Extend `VBox`/`HBox` beyond uniform flex + gap by allowing a small declarative constraint vocabulary so container children can opt into fixed, percentage or weighted distribution in the MVP runtime path.
+- Summary: Extend the container DSL/runtime with alignment or justify options so `VBox`/`HBox` can place constrained children more intentionally once fixed, percentage and grow-based sizing are already available.
 
 ### Objective
 

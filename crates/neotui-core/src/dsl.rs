@@ -219,6 +219,12 @@ impl DslValidator {
             }
         }
 
+        validate_optional_non_negative_integer_prop(component, path, "width", errors);
+        validate_optional_non_negative_integer_prop(component, path, "height", errors);
+        validate_optional_percentage_prop(component, path, "width_pct", errors);
+        validate_optional_percentage_prop(component, path, "height_pct", errors);
+        validate_optional_positive_integer_prop(component, path, "grow", errors);
+
         self.validate_component_props(component, path, errors);
 
         for (index, child) in component.children.iter().enumerate() {
@@ -375,6 +381,48 @@ fn validate_optional_non_negative_integer_prop(
             _ => errors.push(ValidationError::new(
                 format!("{path}.props.{prop}"),
                 format!("property `{prop}` must be a non-negative integer"),
+            )),
+        }
+    }
+}
+
+fn validate_optional_positive_integer_prop(
+    component: &ComponentSpec,
+    path: &str,
+    prop: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    if let Some(value) = component.props.get(prop) {
+        match value {
+            Value::Integer(value) if *value > 0 => {}
+            Value::Integer(_) => errors.push(ValidationError::new(
+                format!("{path}.props.{prop}"),
+                format!("property `{prop}` must be greater than zero"),
+            )),
+            _ => errors.push(ValidationError::new(
+                format!("{path}.props.{prop}"),
+                format!("property `{prop}` must be greater than zero"),
+            )),
+        }
+    }
+}
+
+fn validate_optional_percentage_prop(
+    component: &ComponentSpec,
+    path: &str,
+    prop: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    if let Some(value) = component.props.get(prop) {
+        match value {
+            Value::Integer(value) if (0..=100).contains(value) => {}
+            Value::Integer(_) => errors.push(ValidationError::new(
+                format!("{path}.props.{prop}"),
+                format!("property `{prop}` must be between 0 and 100"),
+            )),
+            _ => errors.push(ValidationError::new(
+                format!("{path}.props.{prop}"),
+                format!("property `{prop}` must be between 0 and 100"),
             )),
         }
     }
@@ -727,6 +775,68 @@ align = "center"
         let errors = spec.validate().expect_err("negative gap should fail");
 
         assert_eq!(errors.errors()[0].path, "root.props.gap");
+    }
+
+    #[test]
+    fn validator_accepts_layout_constraint_props() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "HBox".into(),
+                id: None,
+                props: BTreeMap::from([("gap".into(), Value::Integer(1))]),
+                children: vec![
+                    ComponentSpec {
+                        kind: "Label".into(),
+                        id: None,
+                        props: BTreeMap::from([
+                            ("text".into(), Value::String("Fixed".into())),
+                            ("width".into(), Value::Integer(4)),
+                        ]),
+                        children: Vec::new(),
+                    },
+                    ComponentSpec {
+                        kind: "Label".into(),
+                        id: None,
+                        props: BTreeMap::from([
+                            ("text".into(), Value::String("Grow".into())),
+                            ("grow".into(), Value::Integer(2)),
+                        ]),
+                        children: Vec::new(),
+                    },
+                ],
+            },
+        };
+
+        assert_eq!(spec.validate(), Ok(()));
+    }
+
+    #[test]
+    fn validator_rejects_invalid_layout_constraint_props() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "Label".into(),
+                id: None,
+                props: BTreeMap::from([
+                    ("text".into(), Value::String("Hello".into())),
+                    ("width_pct".into(), Value::Integer(120)),
+                    ("grow".into(), Value::Integer(0)),
+                ]),
+                children: Vec::new(),
+            },
+        };
+
+        let errors = spec
+            .validate()
+            .expect_err("invalid layout props should fail");
+        let rendered = errors.to_string();
+
+        assert!(rendered
+            .contains("root.props.width_pct: property `width_pct` must be between 0 and 100"));
+        assert!(rendered.contains("root.props.grow: property `grow` must be greater than zero"));
     }
 
     #[test]

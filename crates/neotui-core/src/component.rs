@@ -2,7 +2,7 @@
 // Shared contracts for declarative UI elements
 
 use crate::event::{Command, ComponentId, Event, EventResult};
-use crate::layout::{split_vertical, Constraint, Position, Rect};
+use crate::layout::{split_vertical, Axis, Constraint, Position, Rect};
 use crate::render::ScreenBuffer;
 
 /// Frame alias used by components when rendering into the framebuffer.
@@ -86,8 +86,43 @@ impl EventContext {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct LayoutHints {
+    pub width: Option<u16>,
+    pub height: Option<u16>,
+    pub width_pct: Option<u16>,
+    pub height_pct: Option<u16>,
+    pub grow: Option<u16>,
+}
+
+impl LayoutHints {
+    pub fn constraint_for_axis(&self, axis: Axis) -> Option<Constraint> {
+        match axis {
+            Axis::Vertical => {
+                if let Some(height) = self.height {
+                    Some(Constraint::Fixed(height))
+                } else if let Some(height_pct) = self.height_pct {
+                    Some(Constraint::Percentage(height_pct))
+                } else {
+                    self.grow.map(Constraint::Flex)
+                }
+            }
+            Axis::Horizontal => {
+                if let Some(width) = self.width {
+                    Some(Constraint::Fixed(width))
+                } else if let Some(width_pct) = self.width_pct {
+                    Some(Constraint::Percentage(width_pct))
+                } else {
+                    self.grow.map(Constraint::Flex)
+                }
+            }
+        }
+    }
+}
+
 pub struct ComponentNode {
     component: Box<dyn Component>,
+    layout_hints: LayoutHints,
     children: Vec<ComponentNode>,
 }
 
@@ -95,8 +130,14 @@ impl ComponentNode {
     pub fn new(component: Box<dyn Component>) -> Self {
         Self {
             component,
+            layout_hints: LayoutHints::default(),
             children: Vec::new(),
         }
+    }
+
+    pub fn with_layout_hints(mut self, layout_hints: LayoutHints) -> Self {
+        self.layout_hints = layout_hints;
+        self
     }
 
     pub fn with_children(mut self, children: Vec<ComponentNode>) -> Self {
@@ -110,6 +151,10 @@ impl ComponentNode {
 
     pub fn children(&self) -> &[ComponentNode] {
         &self.children
+    }
+
+    pub fn layout_hints(&self) -> &LayoutHints {
+        &self.layout_hints
     }
 
     pub fn children_mut(&mut self) -> &mut [ComponentNode] {
@@ -175,9 +220,7 @@ impl ComponentNode {
     }
 
     pub fn layout_subtree(&self, ctx: &LayoutContext, area: Rect) -> LayoutNode {
-        let child_areas = self
-            .component
-            .child_layout_areas(&area, self.children.len());
+        let child_areas = self.component.child_layout_areas(&area, &self.children);
         let children = self
             .children
             .iter()
@@ -355,12 +398,12 @@ pub trait Component {
         LayoutNode::new(self.id(), area)
     }
 
-    fn child_layout_areas(&self, area: &Rect, child_count: usize) -> Vec<Rect> {
-        if child_count == 0 {
+    fn child_layout_areas(&self, area: &Rect, children: &[ComponentNode]) -> Vec<Rect> {
+        if children.is_empty() {
             return Vec::new();
         }
 
-        split_vertical(area.clone(), &vec![Constraint::Flex(1); child_count])
+        split_vertical(area.clone(), &vec![Constraint::Flex(1); children.len()])
     }
 
     fn render(&self, _ctx: &RenderContext, _frame: &mut Frame);
@@ -525,6 +568,25 @@ mod tests {
         assert_eq!(layout.children.len(), 2);
         assert_eq!(layout.children[0].area, Rect::new(0, 0, 8, 2));
         assert_eq!(layout.children[1].area, Rect::new(0, 2, 8, 2));
+    }
+
+    #[test]
+    fn layout_hints_choose_axis_specific_constraints() {
+        let hints = LayoutHints {
+            width: Some(4),
+            height_pct: Some(60),
+            grow: Some(2),
+            ..LayoutHints::default()
+        };
+
+        assert_eq!(
+            hints.constraint_for_axis(Axis::Horizontal),
+            Some(Constraint::Fixed(4))
+        );
+        assert_eq!(
+            hints.constraint_for_axis(Axis::Vertical),
+            Some(Constraint::Percentage(60))
+        );
     }
 
     #[test]

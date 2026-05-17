@@ -3,7 +3,7 @@
 
 use std::fmt;
 
-use crate::component::{ComponentNode, ComponentTree};
+use crate::component::{ComponentNode, ComponentTree, LayoutHints};
 use crate::dsl::{AppSpec, ComponentSpec, Value};
 use crate::render::TextAlign;
 use crate::widgets::{Divider, DividerOrientation, Label, Panel, Spacer, Stack};
@@ -27,6 +27,7 @@ impl ComponentRegistry {
         path: &str,
     ) -> Result<ComponentNode, RegistryError> {
         let component = self.instantiate_component(spec, path)?;
+        let layout_hints = layout_hints_from_spec(spec, path)?;
         let children = spec
             .children
             .iter()
@@ -34,7 +35,9 @@ impl ComponentRegistry {
             .map(|(index, child)| self.build_node(child, &format!("{path}.children[{index}]")))
             .collect::<Result<Vec<_>, _>>()?;
 
-        Ok(ComponentNode::new(component).with_children(children))
+        Ok(ComponentNode::new(component)
+            .with_layout_hints(layout_hints)
+            .with_children(children))
     }
 
     fn instantiate_component(
@@ -275,6 +278,56 @@ fn optional_u16(
     }
 }
 
+fn optional_percent(
+    spec: &ComponentSpec,
+    path: &str,
+    property: &str,
+) -> Result<Option<u16>, RegistryError> {
+    let Some(value) = optional_u16(spec, path, property)? else {
+        return Ok(None);
+    };
+
+    if value > 100 {
+        return Err(RegistryError::InvalidPropertyValue {
+            path: path.into(),
+            property: property.into(),
+            message: format!("property `{property}` must be between 0 and 100"),
+        });
+    }
+
+    Ok(Some(value))
+}
+
+fn optional_positive_u16(
+    spec: &ComponentSpec,
+    path: &str,
+    property: &str,
+) -> Result<Option<u16>, RegistryError> {
+    let Some(value) = optional_u16(spec, path, property)? else {
+        return Ok(None);
+    };
+
+    if value == 0 {
+        return Err(RegistryError::InvalidPropertyValue {
+            path: path.into(),
+            property: property.into(),
+            message: format!("property `{property}` must be greater than zero"),
+        });
+    }
+
+    Ok(Some(value))
+}
+
+fn layout_hints_from_spec(spec: &ComponentSpec, path: &str) -> Result<LayoutHints, RegistryError> {
+    Ok(LayoutHints {
+        width: optional_u16(spec, path, "width")?,
+        height: optional_u16(spec, path, "height")?,
+        width_pct: optional_percent(spec, path, "width_pct")?,
+        height_pct: optional_percent(spec, path, "height_pct")?,
+        grow: optional_positive_u16(spec, path, "grow")?,
+    })
+}
+
 fn optional_orientation(
     spec: &ComponentSpec,
     path: &str,
@@ -392,6 +445,77 @@ mod tests {
                 .map(|id| id.0)
                 .collect::<Vec<_>>(),
             vec!["layout", "row", "left", "right"]
+        );
+    }
+
+    #[test]
+    fn registry_applies_layout_hints_to_children() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "HBox".into(),
+                id: Some("layout".into()),
+                props: BTreeMap::new(),
+                children: vec![
+                    ComponentSpec {
+                        kind: "Label".into(),
+                        id: Some("fixed".into()),
+                        props: BTreeMap::from([
+                            ("text".into(), Value::String("Fixed".into())),
+                            ("width".into(), Value::Integer(6)),
+                        ]),
+                        children: Vec::new(),
+                    },
+                    ComponentSpec {
+                        kind: "Label".into(),
+                        id: Some("flex".into()),
+                        props: BTreeMap::from([
+                            ("text".into(), Value::String("Flex".into())),
+                            ("grow".into(), Value::Integer(2)),
+                        ]),
+                        children: Vec::new(),
+                    },
+                ],
+            },
+        };
+
+        let tree = ComponentRegistry::new()
+            .build_tree(&spec)
+            .expect("layout hints should instantiate");
+
+        let layout = tree.layout(
+            &crate::component::LayoutContext,
+            crate::layout::Rect::new(0, 0, 20, 3),
+        );
+
+        assert_eq!(layout.children[0].area.width, 6);
+        assert_eq!(layout.children[1].area.width, 14);
+    }
+
+    #[test]
+    fn registry_rejects_invalid_width_percent() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "Label".into(),
+                id: None,
+                props: BTreeMap::from([
+                    ("text".into(), Value::String("Hello".into())),
+                    ("width_pct".into(), Value::Integer(120)),
+                ]),
+                children: Vec::new(),
+            },
+        };
+
+        let error = ComponentRegistry::new()
+            .build_tree(&spec)
+            .expect_err("width_pct above 100 should fail");
+
+        assert_eq!(
+            error.to_string(),
+            "root.props.width_pct: property `width_pct` must be between 0 and 100"
         );
     }
 

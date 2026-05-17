@@ -15,6 +15,7 @@ id = "header"
 [root.children.props]
 text = "Layout Demo"
 align = "center"
+height = 1
 
 [[root.children]]
 kind = "HBox"
@@ -30,6 +31,7 @@ id = "left-column"
 [root.children.children.props]
 text = "Left"
 align = "center"
+width = 6
 
 [[root.children.children]]
 kind = "Label"
@@ -38,3 +40,4 @@ id = "right-column"
 [root.children.children.props]
 text = "Right"
 align = "center"
+grow = 2

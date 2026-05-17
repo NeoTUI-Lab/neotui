@@ -1,9 +1,9 @@
 // Stack layout widgets
 // Provide minimal vertical and horizontal containers for declarative layouts
 
-use crate::component::{Component, Frame, LayoutContext, LayoutNode, RenderContext};
+use crate::component::{Component, ComponentNode, Frame, LayoutContext, LayoutNode, RenderContext};
 use crate::event::ComponentId;
-use crate::layout::{split_horizontal, split_vertical, Constraint, Rect};
+use crate::layout::{split_horizontal, split_vertical, Axis, Constraint, Rect};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum StackDirection {
@@ -58,14 +58,14 @@ impl Component for Stack {
         LayoutNode::new(self.id(), area)
     }
 
-    fn child_layout_areas(&self, area: &Rect, child_count: usize) -> Vec<Rect> {
-        if child_count == 0 {
+    fn child_layout_areas(&self, area: &Rect, children: &[ComponentNode]) -> Vec<Rect> {
+        if children.is_empty() {
             return Vec::new();
         }
 
         let total_gap = self
             .gap
-            .saturating_mul(u16::try_from(child_count.saturating_sub(1)).unwrap_or(u16::MAX));
+            .saturating_mul(u16::try_from(children.len().saturating_sub(1)).unwrap_or(u16::MAX));
 
         let available_area = match self.direction {
             StackDirection::Vertical => Rect::new(
@@ -82,7 +82,19 @@ impl Component for Stack {
             ),
         };
 
-        let constraints = vec![Constraint::Flex(1); child_count];
+        let axis = match self.direction {
+            StackDirection::Vertical => Axis::Vertical,
+            StackDirection::Horizontal => Axis::Horizontal,
+        };
+        let constraints = children
+            .iter()
+            .map(|child| {
+                child
+                    .layout_hints()
+                    .constraint_for_axis(axis)
+                    .unwrap_or(Constraint::Flex(1))
+            })
+            .collect::<Vec<_>>();
 
         let base_areas = match self.direction {
             StackDirection::Vertical => split_vertical(available_area, &constraints),
@@ -127,7 +139,11 @@ mod tests {
     fn vbox_splits_children_vertically() {
         let stack = Stack::vertical("layout");
 
-        let areas = stack.child_layout_areas(&Rect::new(0, 0, 8, 5), 2);
+        let children = vec![
+            ComponentNode::new(Box::new(Stack::vertical("a"))),
+            ComponentNode::new(Box::new(Stack::vertical("b"))),
+        ];
+        let areas = stack.child_layout_areas(&Rect::new(0, 0, 8, 5), &children);
 
         assert_eq!(areas, vec![Rect::new(0, 0, 8, 2), Rect::new(0, 2, 8, 3)]);
     }
@@ -136,7 +152,12 @@ mod tests {
     fn hbox_splits_children_horizontally() {
         let stack = Stack::horizontal("layout");
 
-        let areas = stack.child_layout_areas(&Rect::new(0, 0, 7, 3), 3);
+        let children = vec![
+            ComponentNode::new(Box::new(Stack::horizontal("a"))),
+            ComponentNode::new(Box::new(Stack::horizontal("b"))),
+            ComponentNode::new(Box::new(Stack::horizontal("c"))),
+        ];
+        let areas = stack.child_layout_areas(&Rect::new(0, 0, 7, 3), &children);
 
         assert_eq!(
             areas,
@@ -162,7 +183,11 @@ mod tests {
     fn vbox_applies_gap_between_children() {
         let stack = Stack::vertical("layout").with_gap(1);
 
-        let areas = stack.child_layout_areas(&Rect::new(0, 0, 8, 6), 2);
+        let children = vec![
+            ComponentNode::new(Box::new(Stack::vertical("a"))),
+            ComponentNode::new(Box::new(Stack::vertical("b"))),
+        ];
+        let areas = stack.child_layout_areas(&Rect::new(0, 0, 8, 6), &children);
 
         assert_eq!(areas, vec![Rect::new(0, 0, 8, 2), Rect::new(0, 3, 8, 3)]);
     }
@@ -171,8 +196,53 @@ mod tests {
     fn hbox_applies_gap_between_children() {
         let stack = Stack::horizontal("layout").with_gap(2);
 
-        let areas = stack.child_layout_areas(&Rect::new(0, 0, 10, 3), 2);
+        let children = vec![
+            ComponentNode::new(Box::new(Stack::horizontal("a"))),
+            ComponentNode::new(Box::new(Stack::horizontal("b"))),
+        ];
+        let areas = stack.child_layout_areas(&Rect::new(0, 0, 10, 3), &children);
 
         assert_eq!(areas, vec![Rect::new(0, 0, 4, 3), Rect::new(6, 0, 4, 3)]);
+    }
+
+    #[test]
+    fn stack_uses_fixed_and_flex_constraints_from_children() {
+        let stack = Stack::horizontal("layout").with_gap(1);
+        let children = vec![
+            ComponentNode::new(Box::new(Stack::horizontal("fixed"))).with_layout_hints(
+                crate::component::LayoutHints {
+                    width: Some(3),
+                    ..crate::component::LayoutHints::default()
+                },
+            ),
+            ComponentNode::new(Box::new(Stack::horizontal("flex"))).with_layout_hints(
+                crate::component::LayoutHints {
+                    grow: Some(1),
+                    ..crate::component::LayoutHints::default()
+                },
+            ),
+        ];
+
+        let areas = stack.child_layout_areas(&Rect::new(0, 0, 10, 2), &children);
+
+        assert_eq!(areas, vec![Rect::new(0, 0, 3, 2), Rect::new(4, 0, 6, 2)]);
+    }
+
+    #[test]
+    fn stack_uses_percentage_constraint_from_children() {
+        let stack = Stack::vertical("layout");
+        let children = vec![
+            ComponentNode::new(Box::new(Stack::vertical("top"))).with_layout_hints(
+                crate::component::LayoutHints {
+                    height_pct: Some(25),
+                    ..crate::component::LayoutHints::default()
+                },
+            ),
+            ComponentNode::new(Box::new(Stack::vertical("bottom"))),
+        ];
+
+        let areas = stack.child_layout_areas(&Rect::new(0, 0, 8, 8), &children);
+
+        assert_eq!(areas, vec![Rect::new(0, 0, 8, 2), Rect::new(0, 2, 8, 6)]);
     }
 }
