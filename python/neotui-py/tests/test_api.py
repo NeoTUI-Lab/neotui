@@ -6,6 +6,7 @@ import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
+WORKSPACE = ROOT.parents[1]
 
 if str(SRC) not in sys.path:
     sys.path.insert(0, str(SRC))
@@ -110,3 +111,51 @@ def test_run_builds_cli_command_and_cleans_temp_file(monkeypatch) -> None:
     assert recorded["temp_exists_during_run"] is True
     assert '"kind": "Label"' in recorded["temp_payload"]
     assert recorded["cwd"] == neotui._workspace_root()
+
+
+def test_loads_json_builds_app_model() -> None:
+    import neotui
+
+    app = neotui.loads_json(
+        """
+        {
+          "schema_version": "0.1",
+          "theme": "dark",
+          "root": {
+            "kind": "Panel",
+            "props": {"title": "JSON Demo"},
+            "children": [{"kind": "Label", "props": {"text": "Hello"}}]
+          }
+        }
+        """
+    )
+
+    assert app.theme == "dark"
+    assert app.root.kind == "Panel"
+    assert app.root.children[0].props["text"] == "Hello"
+
+
+def test_load_toml_fixture_builds_app_model() -> None:
+    import neotui
+
+    app = neotui.load(WORKSPACE / "examples" / "hello.toml")
+
+    assert app.schema_version == "0.1"
+    assert app.theme == "minimal"
+    assert app.root.kind == "Label"
+    assert app.root.props["text"] == "Hello NeoTUI"
+
+
+def test_load_json_fixture_builds_nested_component_tree() -> None:
+    import neotui
+
+    app = neotui.load(WORKSPACE / "examples" / "dashboard.json")
+
+    assert app.root.kind == "Panel"
+    assert app.root.props["title"] == "Release Overview"
+    assert [child.kind for child in app.root.children] == [
+        "Label",
+        "Divider",
+        "Spacer",
+        "Label",
+    ]

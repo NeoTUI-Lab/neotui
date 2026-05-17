@@ -13,6 +13,9 @@ __all__ = [
     "__version__",
     "binding_available",
     "doctor",
+    "load",
+    "loads_json",
+    "loads_toml",
     "run",
     "App",
     "Component",
@@ -55,6 +58,15 @@ class Component:
             spec["children"] = [child.to_spec() for child in self.children]
         return spec
 
+    @classmethod
+    def from_spec(cls, spec: dict[str, Any]) -> "Component":
+        return cls(
+            kind=spec["kind"],
+            id=spec.get("id"),
+            props=dict(spec.get("props", {})),
+            children=[cls.from_spec(child) for child in spec.get("children", [])],
+        )
+
 
 @dataclass(slots=True)
 class App:
@@ -75,6 +87,14 @@ class App:
 
     def to_json(self) -> str:
         return json.dumps(self.to_spec(), indent=2)
+
+    @classmethod
+    def from_spec(cls, spec: dict[str, Any]) -> "App":
+        return cls(
+            root=Component.from_spec(spec["root"]),
+            schema_version=spec.get("schema_version", "0.1"),
+            theme=spec.get("theme"),
+        )
 
 
 def Label(
@@ -192,6 +212,28 @@ def doctor() -> dict[str, object]:
     }
 
 
+def load(path: str | Path) -> App:
+    source_path = Path(path)
+    suffix = source_path.suffix.lower()
+    payload = source_path.read_text(encoding="utf-8")
+
+    if suffix == ".json":
+        return loads_json(payload)
+    if suffix == ".toml":
+        return loads_toml(payload)
+
+    raise ValueError(f"unsupported NeoTUI DSL format for `{source_path}`; expected .json or .toml")
+
+
+def loads_json(payload: str) -> App:
+    return App.from_spec(json.loads(payload))
+
+
+def loads_toml(payload: str) -> App:
+    toml = _toml_module()
+    return App.from_spec(toml.loads(payload))
+
+
 def run(app: App, *, cargo_bin: str = "cargo", extra_args: Iterable[str] | None = None) -> subprocess.CompletedProcess[str]:
     """Execute a Python-built app through the NeoTUI CLI."""
     workspace_root = _workspace_root()
@@ -253,3 +295,19 @@ def _workspace_root() -> Path | None:
         if (candidate / "AGENTS.md").exists() and (candidate / "Cargo.toml").exists():
             return candidate
     return None
+
+
+def _toml_module() -> Any:
+    try:
+        import tomllib  # type: ignore[attr-defined]
+
+        return tomllib
+    except ModuleNotFoundError:
+        try:
+            import tomli
+
+            return tomli
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "TOML loading requires Python 3.11+ or the optional `tomli` package on older Python versions"
+            ) from exc

@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-010.2.8** - Fechar API Python inicial com `run(app)`
+**TASK-010.3.5** - Fechar carregamento de DSL no pacote Python
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Completed the first useful Python API slice with declarative component builders, `App` serialization, a `run(app)` path that feeds the existing CLI through temporary JSON, and smoke tests covering import and command construction.
+- Summary: Completed the Python-side DSL loading slice with `load()`, `loads_json()`, `loads_toml()`, spec-to-model conversion helpers and tests using both inline payloads and shared repository fixtures.
 
 ---
 
 ## Next Task
 
-**TASK-010.3.1** - Carregar DSL a partir do Python
+**TASK-010.4.1** - Introduzir callbacks Python para `Button`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-010.2.8
+- Depends on: TASK-010.3.5
 - Date: 2026-05-17
-- Summary: Add Python-side helpers to load TOML/JSON DSL into the package model so Python users can move between declarative files and in-memory apps.
+- Summary: Start the callback slice by defining a safe Python-side button callback contract that later runtime work can invoke without exposing raw Rust internals.
 
 ### Objective
 
