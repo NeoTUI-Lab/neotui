@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.2.7** - Adicionar sumário de orientação estrutural ao `check`
+**TASK-009.2.8** - Destacar componentes mais recorrentes no `check`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Extended successful `neotui check` output with orientation-aware structural counts such as vertical, horizontal, framed and separator containers, making the command more useful as a quick architecture review surface.
+- Summary: Extended successful `neotui check` output with a compact dominant-component summary so the command now highlights the main composition pattern of each DSL fixture at a glance.
 
 ---
 
 ## Next Task
 
-**TASK-009.2.8** - Destacar componentes mais recorrentes no `check`
+**TASK-009.2.9** - Sinalizar distribuição estrutural compacta no `check`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.2.7
+- Depends on: TASK-009.2.8
 - Date: 2026-05-17
-- Summary: Extend the success-side summary with a compact “dominant component kinds” hint so `neotui check` can quickly reveal the main composition pattern of a DSL file.
+- Summary: Extend the success-side summary with one more compact structural hint, such as balance between containers and leaves or dominant layout traits, without turning `check` into a verbose inspection dump.
 
 ### Objective
 

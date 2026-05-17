@@ -197,6 +197,7 @@ fn format_check_success(
     let metrics = collect_structure_metrics(&spec.root);
     let layout_prop_counts = collect_layout_prop_counts(&spec.root);
     let orientation_summary = collect_orientation_summary(&spec.root);
+    let dominant_kinds = summarize_dominant_kinds(&kind_counts);
     let component_ids = tree
         .ids_depth_first()
         .into_iter()
@@ -219,10 +220,11 @@ fn format_check_success(
         .map(|(kind, count)| format!("{kind}={count}"))
         .collect::<Vec<_>>()
         .join(", ");
+    let dominant_preview = dominant_kinds.join(", ");
     let component_preview = component_ids.join(", ");
 
     format!(
-        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\ncomponent_count: {}\nmax_depth: {}\ncontainer_components: {}\nleaf_components: {}\norientation: [{}]\nlayout_props: [{}]\ncomponent_kinds: [{}]\ncomponent_ids: [{}]\nphases: parse, validate, instantiate",
+        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\ncomponent_count: {}\nmax_depth: {}\ncontainer_components: {}\nleaf_components: {}\ndominant_kinds: [{}]\norientation: [{}]\nlayout_props: [{}]\ncomponent_kinds: [{}]\ncomponent_ids: [{}]\nphases: parse, validate, instantiate",
         path.display(),
         display_format(format),
         spec.schema_version,
@@ -232,6 +234,7 @@ fn format_check_success(
         tree.max_depth(),
         metrics.container_components,
         metrics.leaf_components,
+        dominant_preview,
         orientation_preview,
         layout_prop_preview,
         kind_preview,
@@ -361,6 +364,20 @@ fn collect_orientation_summary(
     ]);
     visit(root, &mut counts);
     counts
+}
+
+fn summarize_dominant_kinds(kind_counts: &BTreeMap<String, usize>) -> Vec<String> {
+    let Some(max_count) = kind_counts.values().copied().max() else {
+        return Vec::new();
+    };
+
+    let mut dominant = kind_counts
+        .iter()
+        .filter(|(_, count)| **count == max_count)
+        .map(|(kind, count)| format!("{kind}={count}"))
+        .collect::<Vec<_>>();
+    dominant.sort();
+    dominant
 }
 
 fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
@@ -542,6 +559,7 @@ text = "Hello"
         assert!(output.contains("max_depth: 1"));
         assert!(output.contains("container_components: 0"));
         assert!(output.contains("leaf_components: 1"));
+        assert!(output.contains("dominant_kinds: [Label=1]"));
         assert!(output.contains("orientation: []"));
         assert!(output.contains("layout_props: [align=1]"));
         assert!(output.contains("component_kinds: [Label=1]"));
@@ -729,6 +747,7 @@ kind = "Unknown"
         assert!(layout_output.contains("root: `VBox`"));
         assert!(layout_output.contains("container_components: 2"));
         assert!(layout_output.contains("leaf_components: 3"));
+        assert!(layout_output.contains("dominant_kinds: [Label=3]"));
         assert!(layout_output.contains("orientation: [horizontal=1, vertical=1]"));
         assert!(layout_output.contains("layout_props: [align=5, fixed=3, gap=2, justify=1]"));
         assert!(layout_output.contains("component_kinds: [HBox=1, Label=3, VBox=1]"));
@@ -736,6 +755,7 @@ kind = "Unknown"
         assert!(showcase_output.contains("component_count: 9"));
         assert!(showcase_output.contains("container_components: 3"));
         assert!(showcase_output.contains("leaf_components: 6"));
+        assert!(showcase_output.contains("dominant_kinds: [Label=5]"));
         assert!(showcase_output
             .contains("orientation: [framed=1, horizontal=1, separator=1, vertical=1]"));
         assert!(showcase_output.contains("layout_props: [align=7, fixed=5, gap=2, justify=1]"));
