@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.3.7** - Consolidar `neotui doctor` e fechar a US 9.3
+**TASK-010.1.1** - Inicializar pacote `python/neotui-py`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Completed the `neotui doctor` user story with structured diagnostics for terminal readiness, terminal family, color/mouse/raw-mode/alternate-screen hints, GUI support and debug-mode presence, while keeping environment output safe and actionable.
+- Summary: Bootstrapped the `python/neotui-py` package with project metadata, importable `src/neotui` package layout, a minimal PyO3 native module stub and Python smoke tests for package import.
 
 ---
 
 ## Next Task
 
-**TASK-010.1.1** - Inicializar pacote `python/neotui-py`
+**TASK-010.1.2** - Expor metadados básicos do binding Python
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.3.7
+- Depends on: TASK-010.1.1
 - Date: 2026-05-17
-- Summary: Bootstrap the Python package layout and import smoke path for `neotui-py` so the bindings track can start from a working package skeleton.
+- Summary: Add a small stable metadata surface for the Python package and native module so later binding tasks can rely on version/capability introspection.
 
 ### Objective
 

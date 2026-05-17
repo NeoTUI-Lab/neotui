@@ -4,11 +4,9 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
+name = "neotui_py"
 crate-type = ["cdylib"]
 
 [dependencies]
 pyo3 = { version = "0.21", features = ["extension-module"] }
 neotui-core = { path = "../../crates/neotui-core" }
-
-[package.metadata.maturin]
-name = "neotui"
