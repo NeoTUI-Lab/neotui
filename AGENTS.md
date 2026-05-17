@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-010.1.1** - Inicializar pacote `python/neotui-py`
+**TASK-010.2.8** - Fechar API Python inicial com `run(app)`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Bootstrapped the `python/neotui-py` package with project metadata, importable `src/neotui` package layout, a minimal PyO3 native module stub and Python smoke tests for package import.
+- Summary: Completed the first useful Python API slice with declarative component builders, `App` serialization, a `run(app)` path that feeds the existing CLI through temporary JSON, and smoke tests covering import and command construction.
 
 ---
 
 ## Next Task
 
-**TASK-010.1.2** - Expor metadados básicos do binding Python
+**TASK-010.3.1** - Carregar DSL a partir do Python
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-010.1.1
+- Depends on: TASK-010.2.8
 - Date: 2026-05-17
-- Summary: Add a small stable metadata surface for the Python package and native module so later binding tasks can rely on version/capability introspection.
+- Summary: Add Python-side helpers to load TOML/JSON DSL into the package model so Python users can move between declarative files and in-memory apps.
 
 ### Objective
 
