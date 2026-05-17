@@ -258,6 +258,9 @@ impl DslValidator {
             "Spacer" => {
                 validate_no_children(component, path, errors);
             }
+            "VBox" | "HBox" => {
+                validate_optional_non_negative_integer_prop(component, path, "gap", errors);
+            }
             "Panel" => {
                 validate_optional_string_prop(component, path, "title", errors);
             }
@@ -351,6 +354,27 @@ fn validate_optional_enum_prop(
             _ => errors.push(ValidationError::new(
                 format!("{path}.props.{prop}"),
                 format!("property `{prop}` must be a string"),
+            )),
+        }
+    }
+}
+
+fn validate_optional_non_negative_integer_prop(
+    component: &ComponentSpec,
+    path: &str,
+    prop: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    if let Some(value) = component.props.get(prop) {
+        match value {
+            Value::Integer(value) if *value >= 0 => {}
+            Value::Integer(_) => errors.push(ValidationError::new(
+                format!("{path}.props.{prop}"),
+                format!("property `{prop}` must be a non-negative integer"),
+            )),
+            _ => errors.push(ValidationError::new(
+                format!("{path}.props.{prop}"),
+                format!("property `{prop}` must be a non-negative integer"),
             )),
         }
     }
@@ -669,6 +693,40 @@ align = "center"
         let errors = spec.validate().expect_err("invalid spec should fail");
 
         assert_eq!(errors.errors()[0].path, "root.props.orientation");
+    }
+
+    #[test]
+    fn validator_accepts_vbox_gap_prop() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "VBox".into(),
+                id: None,
+                props: BTreeMap::from([("gap".into(), Value::Integer(1))]),
+                children: Vec::new(),
+            },
+        };
+
+        assert_eq!(spec.validate(), Ok(()));
+    }
+
+    #[test]
+    fn validator_rejects_negative_gap_prop() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "HBox".into(),
+                id: None,
+                props: BTreeMap::from([("gap".into(), Value::Integer(-1))]),
+                children: Vec::new(),
+            },
+        };
+
+        let errors = spec.validate().expect_err("negative gap should fail");
+
+        assert_eq!(errors.errors()[0].path, "root.props.gap");
     }
 
     #[test]

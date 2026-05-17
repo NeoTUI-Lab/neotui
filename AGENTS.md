@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.1.3** - Suportar containers declarativos no fluxo `run`
+**TASK-009.1.4** - Adicionar distribuição básica configurável aos containers
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Implemented `VBox` and `HBox` as minimal stack containers in the core registry/runtime path, added a canonical nested layout example, and extended CLI coverage so `run` can execute declarative container trees instead of only `Panel`-driven layouts.
+- Summary: Added `gap` as a validated container layout prop for `VBox`/`HBox`, wired it through the registry and stack layout logic, and updated the canonical nested layout example so `run` now supports simple configurable spacing between declarative container children.
 
 ---
 
 ## Next Task
 
-**TASK-009.1.4** - Adicionar distribuição básica configurável aos containers
+**TASK-009.1.5** - Permitir constraints básicas declarativas nos containers
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.1.3
+- Depends on: TASK-009.1.4
 - Date: 2026-05-17
-- Summary: Extend `VBox`/`HBox` with simple layout props such as spacing or basic constraints so declarative container examples can express more than equal split layouts while preserving the MVP terminal-first architecture.
+- Summary: Extend `VBox`/`HBox` beyond uniform flex + gap by allowing a small declarative constraint vocabulary so container children can opt into fixed, percentage or weighted distribution in the MVP runtime path.
 
 ### Objective
 

@@ -376,11 +376,15 @@ kind = "Unknown"
         let header_row: String = (0..20)
             .map(|x| frame.get(x, 0).map(|cell| cell.symbol).unwrap_or(' '))
             .collect();
+        let gap_row: String = (0..20)
+            .map(|x| frame.get(x, 1).map(|cell| cell.symbol).unwrap_or(' '))
+            .collect();
         let columns_row: String = (0..20)
             .map(|x| frame.get(x, 2).map(|cell| cell.symbol).unwrap_or(' '))
             .collect();
 
         assert!(header_row.contains("Layout Demo"));
+        assert!(gap_row.trim().is_empty());
         assert!(columns_row.contains("Left"));
         assert!(columns_row.contains("Right"));
     }

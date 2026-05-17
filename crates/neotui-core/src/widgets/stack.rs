@@ -15,6 +15,7 @@ pub enum StackDirection {
 pub struct Stack {
     id: ComponentId,
     direction: StackDirection,
+    gap: u16,
 }
 
 impl Stack {
@@ -22,6 +23,7 @@ impl Stack {
         Self {
             id: ComponentId(id.into()),
             direction: StackDirection::Vertical,
+            gap: 0,
         }
     }
 
@@ -29,11 +31,21 @@ impl Stack {
         Self {
             id: ComponentId(id.into()),
             direction: StackDirection::Horizontal,
+            gap: 0,
         }
     }
 
     pub fn direction(&self) -> StackDirection {
         self.direction
+    }
+
+    pub fn gap(&self) -> u16 {
+        self.gap
+    }
+
+    pub fn with_gap(mut self, gap: u16) -> Self {
+        self.gap = gap;
+        self
     }
 }
 
@@ -51,12 +63,56 @@ impl Component for Stack {
             return Vec::new();
         }
 
+        let total_gap = self
+            .gap
+            .saturating_mul(u16::try_from(child_count.saturating_sub(1)).unwrap_or(u16::MAX));
+
+        let available_area = match self.direction {
+            StackDirection::Vertical => Rect::new(
+                area.x,
+                area.y,
+                area.width,
+                area.height.saturating_sub(total_gap),
+            ),
+            StackDirection::Horizontal => Rect::new(
+                area.x,
+                area.y,
+                area.width.saturating_sub(total_gap),
+                area.height,
+            ),
+        };
+
         let constraints = vec![Constraint::Flex(1); child_count];
 
-        match self.direction {
-            StackDirection::Vertical => split_vertical(area.clone(), &constraints),
-            StackDirection::Horizontal => split_horizontal(area.clone(), &constraints),
-        }
+        let base_areas = match self.direction {
+            StackDirection::Vertical => split_vertical(available_area, &constraints),
+            StackDirection::Horizontal => split_horizontal(available_area, &constraints),
+        };
+
+        base_areas
+            .into_iter()
+            .enumerate()
+            .map(|(index, rect)| match self.direction {
+                StackDirection::Vertical => Rect::new(
+                    rect.x,
+                    rect.y.saturating_add(
+                        self.gap
+                            .saturating_mul(u16::try_from(index).unwrap_or(u16::MAX)),
+                    ),
+                    rect.width,
+                    rect.height,
+                ),
+                StackDirection::Horizontal => Rect::new(
+                    rect.x.saturating_add(
+                        self.gap
+                            .saturating_mul(u16::try_from(index).unwrap_or(u16::MAX)),
+                    ),
+                    rect.y,
+                    rect.width,
+                    rect.height,
+                ),
+            })
+            .collect()
     }
 
     fn render(&self, _ctx: &RenderContext, _frame: &mut Frame) {}
@@ -100,5 +156,23 @@ mod tests {
 
         assert_eq!(node.component_id, ComponentId("row".into()));
         assert_eq!(node.area, Rect::new(1, 2, 6, 4));
+    }
+
+    #[test]
+    fn vbox_applies_gap_between_children() {
+        let stack = Stack::vertical("layout").with_gap(1);
+
+        let areas = stack.child_layout_areas(&Rect::new(0, 0, 8, 6), 2);
+
+        assert_eq!(areas, vec![Rect::new(0, 0, 8, 2), Rect::new(0, 3, 8, 3)]);
+    }
+
+    #[test]
+    fn hbox_applies_gap_between_children() {
+        let stack = Stack::horizontal("layout").with_gap(2);
+
+        let areas = stack.child_layout_areas(&Rect::new(0, 0, 10, 3), 2);
+
+        assert_eq!(areas, vec![Rect::new(0, 0, 4, 3), Rect::new(6, 0, 4, 3)]);
     }
 }

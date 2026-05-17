@@ -73,8 +73,14 @@ impl ComponentRegistry {
                 Ok(Box::new(divider))
             }
             "Spacer" => Ok(Box::new(Spacer::new(id))),
-            "VBox" => Ok(Box::new(Stack::vertical(id))),
-            "HBox" => Ok(Box::new(Stack::horizontal(id))),
+            "VBox" => {
+                let gap = optional_u16(spec, path, "gap")?.unwrap_or(0);
+                Ok(Box::new(Stack::vertical(id).with_gap(gap)))
+            }
+            "HBox" => {
+                let gap = optional_u16(spec, path, "gap")?.unwrap_or(0);
+                Ok(Box::new(Stack::horizontal(id).with_gap(gap)))
+            }
             "TextBlock" | "Button" | "List" | "Graph" => {
                 Err(RegistryError::UnimplementedComponent {
                     path: path.into(),
@@ -243,6 +249,32 @@ fn optional_align(spec: &ComponentSpec, path: &str) -> Result<TextAlign, Registr
     }
 }
 
+fn optional_u16(
+    spec: &ComponentSpec,
+    path: &str,
+    property: &str,
+) -> Result<Option<u16>, RegistryError> {
+    match spec.props.get(property) {
+        Some(Value::Integer(value)) => {
+            let Ok(value) = u16::try_from(*value) else {
+                return Err(RegistryError::InvalidPropertyValue {
+                    path: path.into(),
+                    property: property.into(),
+                    message: format!("property `{property}` must be a non-negative integer"),
+                });
+            };
+
+            Ok(Some(value))
+        }
+        Some(_) => Err(RegistryError::InvalidPropertyType {
+            path: path.into(),
+            property: property.into(),
+            expected: "a non-negative integer".into(),
+        }),
+        None => Ok(None),
+    }
+}
+
 fn optional_orientation(
     spec: &ComponentSpec,
     path: &str,
@@ -327,11 +359,11 @@ mod tests {
             root: ComponentSpec {
                 kind: "VBox".into(),
                 id: Some("layout".into()),
-                props: BTreeMap::new(),
+                props: BTreeMap::from([("gap".into(), Value::Integer(1))]),
                 children: vec![ComponentSpec {
                     kind: "HBox".into(),
                     id: Some("row".into()),
-                    props: BTreeMap::new(),
+                    props: BTreeMap::from([("gap".into(), Value::Integer(2))]),
                     children: vec![
                         ComponentSpec {
                             kind: "Label".into(),
@@ -360,6 +392,29 @@ mod tests {
                 .map(|id| id.0)
                 .collect::<Vec<_>>(),
             vec!["layout", "row", "left", "right"]
+        );
+    }
+
+    #[test]
+    fn registry_rejects_negative_gap() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "VBox".into(),
+                id: None,
+                props: BTreeMap::from([("gap".into(), Value::Integer(-1))]),
+                children: Vec::new(),
+            },
+        };
+
+        let error = ComponentRegistry::new()
+            .build_tree(&spec)
+            .expect_err("negative gap should be rejected");
+
+        assert_eq!(
+            error.to_string(),
+            "root.props.gap: property `gap` must be a non-negative integer"
         );
     }
 

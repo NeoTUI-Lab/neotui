@@ -5,6 +5,9 @@ theme = "minimal"
 kind = "VBox"
 id = "layout-demo"
 
+[root.props]
+gap = 1
+
 [[root.children]]
 kind = "Label"
 id = "header"
@@ -16,6 +19,9 @@ align = "center"
 [[root.children]]
 kind = "HBox"
 id = "columns"
+
+[root.children.props]
+gap = 2
 
 [[root.children.children]]
 kind = "Label"
