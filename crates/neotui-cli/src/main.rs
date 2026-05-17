@@ -194,6 +194,7 @@ fn format_check_success(
 ) -> String {
     let theme = spec.theme.as_deref().unwrap_or("none");
     let kind_counts = collect_kind_counts(&spec.root);
+    let metrics = collect_structure_metrics(&spec.root);
     let component_ids = tree
         .ids_depth_first()
         .into_iter()
@@ -207,7 +208,7 @@ fn format_check_success(
     let component_preview = component_ids.join(", ");
 
     format!(
-        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\ncomponent_count: {}\nmax_depth: {}\ncomponent_kinds: [{}]\ncomponent_ids: [{}]\nphases: parse, validate, instantiate",
+        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\ncomponent_count: {}\nmax_depth: {}\ncontainer_components: {}\nleaf_components: {}\ncomponent_kinds: [{}]\ncomponent_ids: [{}]\nphases: parse, validate, instantiate",
         path.display(),
         display_format(format),
         spec.schema_version,
@@ -215,6 +216,8 @@ fn format_check_success(
         spec.root.kind,
         tree.component_count(),
         tree.max_depth(),
+        metrics.container_components,
+        metrics.leaf_components,
         kind_preview,
         component_preview
     )
@@ -232,6 +235,38 @@ fn collect_kind_counts(root: &neotui_core::dsl::ComponentSpec) -> BTreeMap<Strin
     let mut counts = BTreeMap::new();
     visit(root, &mut counts);
     counts
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct StructureMetrics {
+    container_components: usize,
+    leaf_components: usize,
+}
+
+fn collect_structure_metrics(root: &neotui_core::dsl::ComponentSpec) -> StructureMetrics {
+    fn visit(component: &neotui_core::dsl::ComponentSpec) -> StructureMetrics {
+        if component.children.is_empty() {
+            return StructureMetrics {
+                container_components: 0,
+                leaf_components: 1,
+            };
+        }
+
+        let mut metrics = StructureMetrics {
+            container_components: 1,
+            leaf_components: 0,
+        };
+
+        for child in &component.children {
+            let child_metrics = visit(child);
+            metrics.container_components += child_metrics.container_components;
+            metrics.leaf_components += child_metrics.leaf_components;
+        }
+
+        metrics
+    }
+
+    visit(root)
 }
 
 fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
@@ -411,6 +446,8 @@ text = "Hello"
         assert!(output.contains("root: `Label`"));
         assert!(output.contains("component_count: 1"));
         assert!(output.contains("max_depth: 1"));
+        assert!(output.contains("container_components: 0"));
+        assert!(output.contains("leaf_components: 1"));
         assert!(output.contains("component_kinds: [Label=1]"));
         assert!(output.contains("component_ids: [root]"));
         let _ = fs::remove_file(path);
@@ -594,9 +631,13 @@ kind = "Unknown"
         assert!(json_output.contains("root: `Panel`"));
         assert!(theme_output.contains("root: `Panel`"));
         assert!(layout_output.contains("root: `VBox`"));
+        assert!(layout_output.contains("container_components: 2"));
+        assert!(layout_output.contains("leaf_components: 3"));
         assert!(layout_output.contains("component_kinds: [HBox=1, Label=3, VBox=1]"));
         assert!(showcase_output.contains("root: `Panel`"));
         assert!(showcase_output.contains("component_count: 9"));
+        assert!(showcase_output.contains("container_components: 3"));
+        assert!(showcase_output.contains("leaf_components: 6"));
         assert!(showcase_output
             .contains("component_kinds: [Divider=1, HBox=1, Label=5, Panel=1, VBox=1]"));
     }

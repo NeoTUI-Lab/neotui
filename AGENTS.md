@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.2.4** - Expandir inspeção estrutural do comando `check`
+**TASK-009.2.5** - Adicionar contagem estrutural derivada ao `check`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Extended successful `neotui check` output with per-kind component counts so the command now doubles as a compact structural inspection view for DSL fixtures and showcases.
+- Summary: Extended successful `neotui check` output with derived container and leaf counts so the command now reports both composition breadth and structural shape at a glance.
 
 ---
 
 ## Next Task
 
-**TASK-009.2.5** - Adicionar contagem estrutural derivada ao `check`
+**TASK-009.2.6** - Resumir propriedades estruturais de layout no `check`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.2.4
+- Depends on: TASK-009.2.5
 - Date: 2026-05-17
-- Summary: Extend the success-side summary with derived structural metrics such as container vs leaf counts so `neotui check` keeps gaining inspection value without becoming a full debug dump.
+- Summary: Extend the success-side summary with compact layout-property inspection, such as how many components use gap, grow or fixed constraints, so `neotui check` becomes more useful when reviewing layout-heavy examples.
 
 ### Objective
 
