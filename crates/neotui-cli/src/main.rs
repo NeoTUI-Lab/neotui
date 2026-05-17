@@ -354,9 +354,34 @@ kind = "Unknown"
             .expect("dashboard.json should validate");
         let theme_output = check_file(Path::new("examples/theme-demo.toml"))
             .expect("theme-demo.toml should validate");
+        let layout_output = check_file(Path::new("examples/layout-demo.toml"))
+            .expect("layout-demo.toml should validate");
 
         assert!(toml_output.contains("root `Panel`"));
         assert!(json_output.contains("root `Panel`"));
         assert!(theme_output.contains("root `Panel`"));
+        assert!(layout_output.contains("root `VBox`"));
+    }
+
+    #[test]
+    fn render_tree_supports_nested_vbox_and_hbox_layouts() {
+        let LoadedApp { tree, .. } =
+            load_app(Path::new("examples/layout-demo.toml")).expect("layout fixture should load");
+        let area = Rect::new(0, 0, 20, 4);
+        let mut frame = ScreenBuffer::new(20, 4);
+        let layout = tree.layout(&LayoutContext, area);
+
+        tree.render_with_layout(&layout, &mut frame);
+
+        let header_row: String = (0..20)
+            .map(|x| frame.get(x, 0).map(|cell| cell.symbol).unwrap_or(' '))
+            .collect();
+        let columns_row: String = (0..20)
+            .map(|x| frame.get(x, 2).map(|cell| cell.symbol).unwrap_or(' '))
+            .collect();
+
+        assert!(header_row.contains("Layout Demo"));
+        assert!(columns_row.contains("Left"));
+        assert!(columns_row.contains("Right"));
     }
 }

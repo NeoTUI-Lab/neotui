@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.1.2** - Aplicar layout hierárquico mínimo no `run`
+**TASK-009.1.3** - Suportar containers declarativos no fluxo `run`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Added recursive layout computation and layout-aware rendering so `neotui run <file>` no longer paints every child over the full screen area; `Panel` now lays out children inside its content area with a predictable vertical stack suitable for the current MVP widgets.
+- Summary: Implemented `VBox` and `HBox` as minimal stack containers in the core registry/runtime path, added a canonical nested layout example, and extended CLI coverage so `run` can execute declarative container trees instead of only `Panel`-driven layouts.
 
 ---
 
 ## Next Task
 
-**TASK-009.1.3** - Suportar containers declarativos no fluxo `run`
+**TASK-009.1.4** - Adicionar distribuição básica configurável aos containers
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.1.2
+- Depends on: TASK-009.1.3
 - Date: 2026-05-17
-- Summary: Implement `VBox`/`HBox` instantiation and layout-aware rendering in the runtime path so richer DSL examples can execute without relying only on `Panel` child stacking.
+- Summary: Extend `VBox`/`HBox` with simple layout props such as spacing or basic constraints so declarative container examples can express more than equal split layouts while preserving the MVP terminal-first architecture.
 
 ### Objective
 

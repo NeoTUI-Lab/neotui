@@ -1,0 +1,34 @@
+schema_version = "0.1"
+theme = "minimal"
+
+[root]
+kind = "VBox"
+id = "layout-demo"
+
+[[root.children]]
+kind = "Label"
+id = "header"
+
+[root.children.props]
+text = "Layout Demo"
+align = "center"
+
+[[root.children]]
+kind = "HBox"
+id = "columns"
+
+[[root.children.children]]
+kind = "Label"
+id = "left-column"
+
+[root.children.children.props]
+text = "Left"
+align = "center"
+
+[[root.children.children]]
+kind = "Label"
+id = "right-column"
+
+[root.children.children.props]
+text = "Right"
+align = "center"

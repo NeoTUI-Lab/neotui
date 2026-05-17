@@ -6,7 +6,7 @@ use std::fmt;
 use crate::component::{ComponentNode, ComponentTree};
 use crate::dsl::{AppSpec, ComponentSpec, Value};
 use crate::render::TextAlign;
-use crate::widgets::{Divider, DividerOrientation, Label, Panel, Spacer};
+use crate::widgets::{Divider, DividerOrientation, Label, Panel, Spacer, Stack};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ComponentRegistry;
@@ -73,7 +73,9 @@ impl ComponentRegistry {
                 Ok(Box::new(divider))
             }
             "Spacer" => Ok(Box::new(Spacer::new(id))),
-            "VBox" | "HBox" | "TextBlock" | "Button" | "List" | "Graph" => {
+            "VBox" => Ok(Box::new(Stack::vertical(id))),
+            "HBox" => Ok(Box::new(Stack::horizontal(id))),
+            "TextBlock" | "Button" | "List" | "Graph" => {
                 Err(RegistryError::UnimplementedComponent {
                     path: path.into(),
                     kind: spec.kind.clone(),
@@ -314,6 +316,50 @@ mod tests {
                 .map(|id| id.0)
                 .collect::<Vec<_>>(),
             vec!["root-panel", "headline", "root-children[1]"]
+        );
+    }
+
+    #[test]
+    fn registry_builds_tree_for_stack_containers() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "VBox".into(),
+                id: Some("layout".into()),
+                props: BTreeMap::new(),
+                children: vec![ComponentSpec {
+                    kind: "HBox".into(),
+                    id: Some("row".into()),
+                    props: BTreeMap::new(),
+                    children: vec![
+                        ComponentSpec {
+                            kind: "Label".into(),
+                            id: Some("left".into()),
+                            props: BTreeMap::from([("text".into(), Value::String("Alpha".into()))]),
+                            children: Vec::new(),
+                        },
+                        ComponentSpec {
+                            kind: "Label".into(),
+                            id: Some("right".into()),
+                            props: BTreeMap::from([("text".into(), Value::String("Beta".into()))]),
+                            children: Vec::new(),
+                        },
+                    ],
+                }],
+            },
+        };
+
+        let tree = ComponentRegistry::new()
+            .build_tree(&spec)
+            .expect("stack containers should instantiate");
+
+        assert_eq!(
+            tree.ids_depth_first()
+                .into_iter()
+                .map(|id| id.0)
+                .collect::<Vec<_>>(),
+            vec!["layout", "row", "left", "right"]
         );
     }
 
