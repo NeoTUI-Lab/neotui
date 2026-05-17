@@ -85,44 +85,117 @@ enum AppLoadError {
     },
     Validation {
         path: String,
+        format: DslFormat,
+        root_kind: String,
         errors: neotui_core::dsl::ValidationErrors,
     },
     Instantiation {
         path: String,
+        format: DslFormat,
+        root_kind: String,
         source: neotui_core::registry::RegistryError,
     },
 }
 
 impl fmt::Display for AppLoadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "check failed")?;
+        writeln!(f, "file: `{}`", self.path())?;
+        writeln!(f, "phase: {}", self.phase())?;
+
+        if let Some(format) = self.format() {
+            writeln!(f, "format: {}", display_format(format))?;
+        }
+
+        if let Some(root_kind) = self.root_kind() {
+            writeln!(f, "root: `{root_kind}`")?;
+        }
+
         match self {
-            Self::UnsupportedFormat { path } => write!(
+            Self::UnsupportedFormat { .. } => write!(
                 f,
-                "unsupported DSL format for `{path}`; expected .toml or .json\nhint: rename the file to use a supported extension or convert it to TOML/JSON before running `neotui check`"
+                "details: unsupported DSL format; expected .toml or .json\nhint: rename the file to use a supported extension or convert it to TOML/JSON before running `neotui check`"
             ),
-            Self::Read { path, source } => write!(
+            Self::Read { source, .. } => write!(
                 f,
-                "failed to read `{path}`: {source}\nhint: confirm the file exists and that the current user can read it"
+                "details: {source}\nhint: confirm the file exists and that the current user can read it"
             ),
-            Self::Parse {
-                path,
-                format,
-                source,
-            } => write!(
+            Self::Parse { source, .. } => write!(
                 f,
-                "invalid {:?} DSL in `{path}`: {source}\nhint: fix the file syntax first, then re-run `neotui check {path}`",
-                format
+                "details: {source}\nhint: fix the file syntax first, then re-run `neotui check {}`",
+                self.path()
             ),
-            Self::Validation { path, errors } => write!(
+            Self::Validation { errors, .. } => write!(
                 f,
-                "validation failed for `{path}`:\n{errors}\nhint: fix the invalid fields above and re-run `neotui check {path}`"
+                "details:\n{errors}\nhint: fix the invalid fields above and re-run `neotui check {}`",
+                self.path()
             ),
-            Self::Instantiation { path, source } => write!(
+            Self::Instantiation { source, .. } => write!(
                 f,
-                "component instantiation failed for `{path}`: {source}\nhint: use currently executable components such as Panel, Label, Divider, Spacer, VBox and HBox, or implement the missing runtime widget first"
+                "details: {source}\nhint: use currently executable components such as Panel, Label, Divider, Spacer, VBox and HBox, or implement the missing runtime widget first"
             ),
         }
     }
+}
+
+impl AppLoadError {
+    fn phase(&self) -> &'static str {
+        match self {
+            Self::UnsupportedFormat { .. } => "format-detect",
+            Self::Read { .. } => "read",
+            Self::Parse { .. } => "parse",
+            Self::Validation { .. } => "validate",
+            Self::Instantiation { .. } => "instantiate",
+        }
+    }
+
+    fn path(&self) -> &str {
+        match self {
+            Self::UnsupportedFormat { path }
+            | Self::Read { path, .. }
+            | Self::Parse { path, .. }
+            | Self::Validation { path, .. }
+            | Self::Instantiation { path, .. } => path,
+        }
+    }
+
+    fn format(&self) -> Option<DslFormat> {
+        match self {
+            Self::Parse { format, .. }
+            | Self::Validation { format, .. }
+            | Self::Instantiation { format, .. } => Some(*format),
+            Self::UnsupportedFormat { .. } | Self::Read { .. } => None,
+        }
+    }
+
+    fn root_kind(&self) -> Option<&str> {
+        match self {
+            Self::Validation { root_kind, .. } | Self::Instantiation { root_kind, .. } => {
+                Some(root_kind)
+            }
+            Self::UnsupportedFormat { .. } | Self::Read { .. } | Self::Parse { .. } => None,
+        }
+    }
+}
+
+fn display_format(format: DslFormat) -> &'static str {
+    match format {
+        DslFormat::Toml => "toml",
+        DslFormat::Json => "json",
+    }
+}
+
+fn format_check_success(path: &Path, format: DslFormat, spec: &AppSpec) -> String {
+    let theme = spec.theme.as_deref().unwrap_or("none");
+
+    format!(
+        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\nphases: parse, validate, instantiate",
+        path.display(),
+        display_format(format),
+        spec.schema_version,
+        theme,
+        spec.root.kind
+    )
 }
 
 fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
@@ -150,6 +223,8 @@ fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
 
     spec.validate().map_err(|errors| AppLoadError::Validation {
         path: path_display.clone(),
+        format,
+        root_kind: spec.root.kind.clone(),
         errors,
     })?;
 
@@ -157,6 +232,8 @@ fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
         .build_tree(&spec)
         .map_err(|source| AppLoadError::Instantiation {
             path: path_display,
+            format,
+            root_kind: spec.root.kind.clone(),
             source,
         })?;
 
@@ -166,12 +243,7 @@ fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
 fn check_file(path: &Path) -> Result<String, String> {
     let LoadedApp { format, spec, .. } = load_app(path).map_err(|error| error.to_string())?;
 
-    Ok(format!(
-        "check ok: `{}` parsed as {:?}, validated, and instantiable with root `{}`",
-        path.display(),
-        format,
-        spec.root.kind
-    ))
+    Ok(format_check_success(path, format, &spec))
 }
 
 fn run_file(path: &Path) -> Result<(), String> {
@@ -298,7 +370,9 @@ text = "Hello"
 
         let output = check_file(&path).expect("valid DSL should pass");
 
-        assert!(output.contains("check ok:"));
+        assert!(output.contains("check ok"));
+        assert!(output.contains("format: toml"));
+        assert!(output.contains("root: `Label`"));
         let _ = fs::remove_file(path);
     }
 
@@ -324,6 +398,8 @@ text = "Hello"
 
         let error = check_file(&path).expect_err("yaml should not be accepted yet");
 
+        assert!(error.contains("check failed"));
+        assert!(error.contains("phase: format-detect"));
         assert!(error.contains("unsupported DSL format"));
         assert!(error.contains("rename the file"));
         let _ = fs::remove_file(path);
@@ -346,7 +422,9 @@ text = "Hello"
 
         let error = check_file(&path).expect_err("invalid props should fail validation");
 
-        assert!(error.contains("validation failed"));
+        assert!(error.contains("phase: validate"));
+        assert!(error.contains("format: json"));
+        assert!(error.contains("root: `Label`"));
         assert!(error.contains("root.props.text"));
         assert!(error.contains("fix the invalid fields"));
         let _ = fs::remove_file(path);
@@ -366,7 +444,9 @@ kind = "Label"
 
         let error = check_file(&path).expect_err("invalid syntax should fail parsing");
 
-        assert!(error.contains("invalid Toml DSL"));
+        assert!(error.contains("phase: parse"));
+        assert!(error.contains("format: toml"));
+        assert!(error.contains("failed to parse TOML DSL"));
         assert!(error.contains("fix the file syntax first"));
         let _ = fs::remove_file(path);
     }
@@ -385,6 +465,8 @@ kind = "Button"
 
         let error = check_file(&path).expect_err("button should fail instantiation");
 
+        assert!(error.contains("phase: instantiate"));
+        assert!(error.contains("root: `Button`"));
         assert!(error.contains("component instantiation failed"));
         assert!(error.contains("known but not implemented yet"));
         assert!(error.contains("Panel, Label, Divider, Spacer, VBox and HBox"));
@@ -468,11 +550,11 @@ kind = "Unknown"
         let showcase_output = check_file(Path::new("examples/showcase-layout.toml"))
             .expect("showcase-layout.toml should validate");
 
-        assert!(toml_output.contains("root `Panel`"));
-        assert!(json_output.contains("root `Panel`"));
-        assert!(theme_output.contains("root `Panel`"));
-        assert!(layout_output.contains("root `VBox`"));
-        assert!(showcase_output.contains("root `Panel`"));
+        assert!(toml_output.contains("root: `Panel`"));
+        assert!(json_output.contains("root: `Panel`"));
+        assert!(theme_output.contains("root: `Panel`"));
+        assert!(layout_output.contains("root: `VBox`"));
+        assert!(showcase_output.contains("root: `Panel`"));
     }
 
     #[test]

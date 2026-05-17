@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.2.1** - Reforçar diagnósticos do comando `check`
+**TASK-009.2.2** - Padronizar saída detalhada do comando `check`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Centralized DSL loading failures into structured CLI diagnostics so `neotui check` now gives more actionable messages for unsupported formats, parse failures, validation errors and runtime instantiation gaps, with tests covering each category.
+- Summary: Standardized `neotui check` success and failure output around consistent fields such as file, phase, format and root component, so detailed validation and instantiation diagnostics now follow one predictable CLI shape.
 
 ---
 
 ## Next Task
 
-**TASK-009.2.2** - Padronizar saída detalhada do comando `check`
+**TASK-009.2.3** - Enriquecer sumário e contexto de sucesso do `check`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.2.1
+- Depends on: TASK-009.2.2
 - Date: 2026-05-17
-- Summary: Refine `neotui check` output formatting so success and failure reports expose phase, format and root/component context more consistently as the validator and registry continue to grow.
+- Summary: Extend the standardized `check` output with richer success-side context such as component counts or phase summaries so the command becomes more useful as a fast inspection tool, not only a validator.
 
 ### Objective
 
