@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.2.2** - Padronizar saída detalhada do comando `check`
+**TASK-009.2.3** - Enriquecer sumário e contexto de sucesso do `check`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Standardized `neotui check` success and failure output around consistent fields such as file, phase, format and root component, so detailed validation and instantiation diagnostics now follow one predictable CLI shape.
+- Summary: Extended successful `neotui check` output with fast inspection context such as component count, maximum tree depth and the instantiated component id list, making the command more useful as a compact structural summary.
 
 ---
 
 ## Next Task
 
-**TASK-009.2.3** - Enriquecer sumário e contexto de sucesso do `check`
+**TASK-009.2.4** - Expandir inspeção estrutural do comando `check`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.2.2
+- Depends on: TASK-009.2.3
 - Date: 2026-05-17
-- Summary: Extend the standardized `check` output with richer success-side context such as component counts or phase summaries so the command becomes more useful as a fast inspection tool, not only a validator.
+- Summary: Extend the success-side summary further with per-kind counts or related structural context so `neotui check` can serve as a stronger inspection command while the runtime widget set continues to grow.
 
 ### Objective
 

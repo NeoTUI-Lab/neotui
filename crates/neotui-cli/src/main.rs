@@ -185,16 +185,30 @@ fn display_format(format: DslFormat) -> &'static str {
     }
 }
 
-fn format_check_success(path: &Path, format: DslFormat, spec: &AppSpec) -> String {
+fn format_check_success(
+    path: &Path,
+    format: DslFormat,
+    spec: &AppSpec,
+    tree: &ComponentTree,
+) -> String {
     let theme = spec.theme.as_deref().unwrap_or("none");
+    let component_ids = tree
+        .ids_depth_first()
+        .into_iter()
+        .map(|id| id.0)
+        .collect::<Vec<_>>();
+    let component_preview = component_ids.join(", ");
 
     format!(
-        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\nphases: parse, validate, instantiate",
+        "check ok\nfile: `{}`\nformat: {}\nschema_version: `{}`\ntheme: `{}`\nroot: `{}`\ncomponent_count: {}\nmax_depth: {}\ncomponent_ids: [{}]\nphases: parse, validate, instantiate",
         path.display(),
         display_format(format),
         spec.schema_version,
         theme,
-        spec.root.kind
+        spec.root.kind,
+        tree.component_count(),
+        tree.max_depth(),
+        component_preview
     )
 }
 
@@ -241,9 +255,9 @@ fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
 }
 
 fn check_file(path: &Path) -> Result<String, String> {
-    let LoadedApp { format, spec, .. } = load_app(path).map_err(|error| error.to_string())?;
+    let LoadedApp { format, spec, tree } = load_app(path).map_err(|error| error.to_string())?;
 
-    Ok(format_check_success(path, format, &spec))
+    Ok(format_check_success(path, format, &spec, &tree))
 }
 
 fn run_file(path: &Path) -> Result<(), String> {
@@ -373,6 +387,9 @@ text = "Hello"
         assert!(output.contains("check ok"));
         assert!(output.contains("format: toml"));
         assert!(output.contains("root: `Label`"));
+        assert!(output.contains("component_count: 1"));
+        assert!(output.contains("max_depth: 1"));
+        assert!(output.contains("component_ids: [root]"));
         let _ = fs::remove_file(path);
     }
 
@@ -555,6 +572,7 @@ kind = "Unknown"
         assert!(theme_output.contains("root: `Panel`"));
         assert!(layout_output.contains("root: `VBox`"));
         assert!(showcase_output.contains("root: `Panel`"));
+        assert!(showcase_output.contains("component_count: 9"));
     }
 
     #[test]

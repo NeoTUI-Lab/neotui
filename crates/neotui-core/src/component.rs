@@ -201,6 +201,15 @@ impl ComponentNode {
         }
     }
 
+    pub fn max_depth(&self) -> usize {
+        1 + self
+            .children
+            .iter()
+            .map(ComponentNode::max_depth)
+            .max()
+            .unwrap_or(0)
+    }
+
     pub fn collect_focusable_ids_depth_first(&self, ids: &mut Vec<ComponentId>) {
         if self.component.is_focusable() {
             ids.push(self.id());
@@ -296,6 +305,14 @@ impl ComponentTree {
         let mut ids = Vec::new();
         self.root.collect_focusable_ids_depth_first(&mut ids);
         ids
+    }
+
+    pub fn component_count(&self) -> usize {
+        self.ids_depth_first().len()
+    }
+
+    pub fn max_depth(&self) -> usize {
+        self.root.max_depth()
     }
 
     pub fn render(&self, ctx: &RenderContext, frame: &mut Frame) {
@@ -568,6 +585,24 @@ mod tests {
         assert_eq!(layout.children.len(), 2);
         assert_eq!(layout.children[0].area, Rect::new(0, 0, 8, 2));
         assert_eq!(layout.children[1].area, Rect::new(0, 2, 8, 2));
+    }
+
+    #[test]
+    fn component_tree_reports_count_and_depth() {
+        let tree = ComponentTree::new(
+            ComponentNode::new(Box::new(StubComponent::new("root", EventResult::Ignored)))
+                .with_children(vec![ComponentNode::new(Box::new(StubComponent::new(
+                    "child",
+                    EventResult::Ignored,
+                )))
+                .with_children(vec![ComponentNode::new(Box::new(StubComponent::new(
+                    "grandchild",
+                    EventResult::Ignored,
+                )))])]),
+        );
+
+        assert_eq!(tree.component_count(), 3);
+        assert_eq!(tree.max_depth(), 3);
     }
 
     #[test]
