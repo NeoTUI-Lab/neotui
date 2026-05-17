@@ -193,35 +193,12 @@ fn format_check_success(
     tree: &ComponentTree,
 ) -> String {
     let theme = spec.theme.as_deref().unwrap_or("none");
-    let kind_counts = collect_kind_counts(&spec.root);
-    let metrics = collect_structure_metrics(&spec.root);
-    let layout_prop_counts = collect_layout_prop_counts(&spec.root);
-    let orientation_summary = collect_orientation_summary(&spec.root);
-    let dominant_kinds = summarize_dominant_kinds(&kind_counts);
-    let structure_balance = summarize_structure_balance(metrics);
+    let inspection = CheckInspection::from_root(&spec.root);
     let component_ids = tree
         .ids_depth_first()
         .into_iter()
         .map(|id| id.0)
         .collect::<Vec<_>>();
-    let kind_preview = kind_counts
-        .into_iter()
-        .map(|(kind, count)| format!("{kind}={count}"))
-        .collect::<Vec<_>>()
-        .join(", ");
-    let layout_prop_preview = layout_prop_counts
-        .into_iter()
-        .filter(|(_, count)| *count > 0)
-        .map(|(prop, count)| format!("{prop}={count}"))
-        .collect::<Vec<_>>()
-        .join(", ");
-    let orientation_preview = orientation_summary
-        .into_iter()
-        .filter(|(_, count)| *count > 0)
-        .map(|(kind, count)| format!("{kind}={count}"))
-        .collect::<Vec<_>>()
-        .join(", ");
-    let dominant_preview = dominant_kinds.join(", ");
     let component_preview = component_ids.join(", ");
 
     format!(
@@ -233,29 +210,15 @@ fn format_check_success(
         spec.root.kind,
         tree.component_count(),
         tree.max_depth(),
-        metrics.container_components,
-        metrics.leaf_components,
-        structure_balance,
-        dominant_preview,
-        orientation_preview,
-        layout_prop_preview,
-        kind_preview,
+        inspection.metrics.container_components,
+        inspection.metrics.leaf_components,
+        inspection.structure_balance(),
+        inspection.dominant_kinds_preview(),
+        inspection.orientation_preview(),
+        inspection.layout_props_preview(),
+        inspection.kind_counts_preview(),
         component_preview
     )
-}
-
-fn collect_kind_counts(root: &neotui_core::dsl::ComponentSpec) -> BTreeMap<String, usize> {
-    fn visit(component: &neotui_core::dsl::ComponentSpec, counts: &mut BTreeMap<String, usize>) {
-        *counts.entry(component.kind.clone()).or_insert(0) += 1;
-
-        for child in &component.children {
-            visit(child, counts);
-        }
-    }
-
-    let mut counts = BTreeMap::new();
-    visit(root, &mut counts);
-    counts
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -264,134 +227,156 @@ struct StructureMetrics {
     leaf_components: usize,
 }
 
-fn collect_structure_metrics(root: &neotui_core::dsl::ComponentSpec) -> StructureMetrics {
-    fn visit(component: &neotui_core::dsl::ComponentSpec) -> StructureMetrics {
-        if component.children.is_empty() {
-            return StructureMetrics {
-                container_components: 0,
-                leaf_components: 1,
-            };
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct CheckInspection {
+    kind_counts: BTreeMap<String, usize>,
+    layout_prop_counts: BTreeMap<&'static str, usize>,
+    orientation_counts: BTreeMap<&'static str, usize>,
+    metrics: StructureMetrics,
+}
+
+impl CheckInspection {
+    fn from_root(root: &neotui_core::dsl::ComponentSpec) -> Self {
+        fn visit(component: &neotui_core::dsl::ComponentSpec, inspection: &mut CheckInspection) {
+            *inspection
+                .kind_counts
+                .entry(component.kind.clone())
+                .or_insert(0) += 1;
+
+            if component.children.is_empty() {
+                inspection.metrics.leaf_components += 1;
+            } else {
+                inspection.metrics.container_components += 1;
+            }
+
+            let has_fixed =
+                component.props.contains_key("width") || component.props.contains_key("height");
+            let has_percent = component.props.contains_key("width_pct")
+                || component.props.contains_key("height_pct");
+
+            if component.props.contains_key("gap") {
+                *inspection.layout_prop_counts.entry("gap").or_insert(0) += 1;
+            }
+            if component.props.contains_key("grow") {
+                *inspection.layout_prop_counts.entry("grow").or_insert(0) += 1;
+            }
+            if has_fixed {
+                *inspection.layout_prop_counts.entry("fixed").or_insert(0) += 1;
+            }
+            if has_percent {
+                *inspection.layout_prop_counts.entry("percent").or_insert(0) += 1;
+            }
+            if component.props.contains_key("align") {
+                *inspection.layout_prop_counts.entry("align").or_insert(0) += 1;
+            }
+            if component.props.contains_key("justify") {
+                *inspection.layout_prop_counts.entry("justify").or_insert(0) += 1;
+            }
+
+            match component.kind.as_str() {
+                "VBox" => *inspection.orientation_counts.entry("vertical").or_insert(0) += 1,
+                "HBox" => {
+                    *inspection
+                        .orientation_counts
+                        .entry("horizontal")
+                        .or_insert(0) += 1
+                }
+                "Panel" => *inspection.orientation_counts.entry("framed").or_insert(0) += 1,
+                "Divider" => {
+                    *inspection
+                        .orientation_counts
+                        .entry("separator")
+                        .or_insert(0) += 1
+                }
+                _ => {}
+            }
+
+            for child in &component.children {
+                visit(child, inspection);
+            }
         }
 
-        let mut metrics = StructureMetrics {
-            container_components: 1,
-            leaf_components: 0,
+        let mut inspection = Self {
+            kind_counts: BTreeMap::new(),
+            layout_prop_counts: BTreeMap::from([
+                ("align", 0),
+                ("fixed", 0),
+                ("gap", 0),
+                ("grow", 0),
+                ("justify", 0),
+                ("percent", 0),
+            ]),
+            orientation_counts: BTreeMap::from([
+                ("framed", 0),
+                ("horizontal", 0),
+                ("separator", 0),
+                ("vertical", 0),
+            ]),
+            metrics: StructureMetrics {
+                container_components: 0,
+                leaf_components: 0,
+            },
+        };
+        visit(root, &mut inspection);
+        inspection
+    }
+
+    fn structure_balance(&self) -> &'static str {
+        match (
+            self.metrics
+                .container_components
+                .cmp(&self.metrics.leaf_components),
+            self.metrics.container_components,
+            self.metrics.leaf_components,
+        ) {
+            (_, 0, leafs) if leafs > 0 => "leaf-only",
+            (std::cmp::Ordering::Greater, _, _) => "container-heavy",
+            (std::cmp::Ordering::Equal, _, _) => "balanced",
+            (std::cmp::Ordering::Less, _, _) => "leaf-heavy",
+        }
+    }
+
+    fn dominant_kinds_preview(&self) -> String {
+        let Some(max_count) = self.kind_counts.values().copied().max() else {
+            return String::new();
         };
 
-        for child in &component.children {
-            let child_metrics = visit(child);
-            metrics.container_components += child_metrics.container_components;
-            metrics.leaf_components += child_metrics.leaf_components;
-        }
-
-        metrics
+        let mut dominant = self
+            .kind_counts
+            .iter()
+            .filter(|(_, count)| **count == max_count)
+            .map(|(kind, count)| format!("{kind}={count}"))
+            .collect::<Vec<_>>();
+        dominant.sort();
+        dominant.join(", ")
     }
 
-    visit(root)
-}
-
-fn collect_layout_prop_counts(
-    root: &neotui_core::dsl::ComponentSpec,
-) -> BTreeMap<&'static str, usize> {
-    fn visit(
-        component: &neotui_core::dsl::ComponentSpec,
-        counts: &mut BTreeMap<&'static str, usize>,
-    ) {
-        let has_fixed =
-            component.props.contains_key("width") || component.props.contains_key("height");
-        let has_percent =
-            component.props.contains_key("width_pct") || component.props.contains_key("height_pct");
-
-        if component.props.contains_key("gap") {
-            *counts.entry("gap").or_insert(0) += 1;
-        }
-        if component.props.contains_key("grow") {
-            *counts.entry("grow").or_insert(0) += 1;
-        }
-        if has_fixed {
-            *counts.entry("fixed").or_insert(0) += 1;
-        }
-        if has_percent {
-            *counts.entry("percent").or_insert(0) += 1;
-        }
-        if component.props.contains_key("align") {
-            *counts.entry("align").or_insert(0) += 1;
-        }
-        if component.props.contains_key("justify") {
-            *counts.entry("justify").or_insert(0) += 1;
-        }
-
-        for child in &component.children {
-            visit(child, counts);
-        }
+    fn orientation_preview(&self) -> String {
+        Self::format_non_zero_counts(&self.orientation_counts)
     }
 
-    let mut counts = BTreeMap::from([
-        ("align", 0),
-        ("fixed", 0),
-        ("gap", 0),
-        ("grow", 0),
-        ("justify", 0),
-        ("percent", 0),
-    ]);
-    visit(root, &mut counts);
-    counts
-}
-
-fn collect_orientation_summary(
-    root: &neotui_core::dsl::ComponentSpec,
-) -> BTreeMap<&'static str, usize> {
-    fn visit(
-        component: &neotui_core::dsl::ComponentSpec,
-        counts: &mut BTreeMap<&'static str, usize>,
-    ) {
-        match component.kind.as_str() {
-            "VBox" => *counts.entry("vertical").or_insert(0) += 1,
-            "HBox" => *counts.entry("horizontal").or_insert(0) += 1,
-            "Panel" => *counts.entry("framed").or_insert(0) += 1,
-            "Divider" => *counts.entry("separator").or_insert(0) += 1,
-            _ => {}
-        }
-
-        for child in &component.children {
-            visit(child, counts);
-        }
+    fn layout_props_preview(&self) -> String {
+        Self::format_non_zero_counts(&self.layout_prop_counts)
     }
 
-    let mut counts = BTreeMap::from([
-        ("framed", 0),
-        ("horizontal", 0),
-        ("separator", 0),
-        ("vertical", 0),
-    ]);
-    visit(root, &mut counts);
-    counts
-}
+    fn kind_counts_preview(&self) -> String {
+        self.kind_counts
+            .iter()
+            .map(|(kind, count)| format!("{kind}={count}"))
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
 
-fn summarize_dominant_kinds(kind_counts: &BTreeMap<String, usize>) -> Vec<String> {
-    let Some(max_count) = kind_counts.values().copied().max() else {
-        return Vec::new();
-    };
-
-    let mut dominant = kind_counts
-        .iter()
-        .filter(|(_, count)| **count == max_count)
-        .map(|(kind, count)| format!("{kind}={count}"))
-        .collect::<Vec<_>>();
-    dominant.sort();
-    dominant
-}
-
-fn summarize_structure_balance(metrics: StructureMetrics) -> &'static str {
-    match (
-        metrics.container_components.cmp(&metrics.leaf_components),
-        metrics.container_components,
-        metrics.leaf_components,
-    ) {
-        (_, 0, leafs) if leafs > 0 => "leaf-only",
-        (std::cmp::Ordering::Greater, _, _) => "container-heavy",
-        (std::cmp::Ordering::Equal, _, _) => "balanced",
-        (std::cmp::Ordering::Less, _, _) => "leaf-heavy",
+    fn format_non_zero_counts<K>(counts: &BTreeMap<K, usize>) -> String
+    where
+        K: AsRef<str> + Ord,
+    {
+        counts
+            .iter()
+            .filter(|(_, count)| **count > 0)
+            .map(|(key, count)| format!("{}={count}", key.as_ref()))
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 }
 
@@ -597,6 +582,64 @@ text = "Hello"
                 .collect::<Vec<_>>(),
             vec!["root"]
         );
+    }
+
+    #[test]
+    fn check_inspection_consolidates_structural_helpers() {
+        let spec = AppSpec::from_toml_str(
+            r#"
+schema_version = "0.1"
+
+[root]
+kind = "VBox"
+
+[root.props]
+gap = 1
+align = "center"
+
+[[root.children]]
+kind = "Label"
+
+[root.children.props]
+text = "A"
+align = "center"
+width = 4
+height = 1
+
+[[root.children]]
+kind = "HBox"
+
+[root.children.props]
+gap = 2
+justify = "center"
+
+[[root.children.children]]
+kind = "Label"
+
+[root.children.children.props]
+text = "B"
+grow = 1
+"#,
+        )
+        .expect("inline app spec should parse");
+
+        let inspection = CheckInspection::from_root(&spec.root);
+
+        assert_eq!(
+            inspection.metrics,
+            StructureMetrics {
+                container_components: 2,
+                leaf_components: 2,
+            }
+        );
+        assert_eq!(inspection.structure_balance(), "balanced");
+        assert_eq!(inspection.dominant_kinds_preview(), "Label=2");
+        assert_eq!(inspection.orientation_preview(), "horizontal=1, vertical=1");
+        assert_eq!(
+            inspection.layout_props_preview(),
+            "align=2, fixed=1, gap=2, grow=1, justify=1"
+        );
+        assert_eq!(inspection.kind_counts_preview(), "HBox=1, Label=2, VBox=1");
     }
 
     #[test]

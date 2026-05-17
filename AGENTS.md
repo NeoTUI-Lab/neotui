@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.2.9** - Sinalizar distribuição estrutural compacta no `check`
+**TASK-009.2.10** - Consolidar helpers de inspeção estrutural do `check`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Extended successful `neotui check` output with a compact structure-balance hint derived from container versus leaf counts, making composition density easier to read at a glance.
+- Summary: Refactored the growing `neotui check` structural inspection logic into a single internal summary collector, preserving output while making the command easier to extend and test.
 
 ---
 
 ## Next Task
 
-**TASK-009.2.10** - Consolidar helpers de inspeção estrutural do `check`
+**TASK-009.3.1** - Introduzir `neotui doctor` mínimo
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.2.9
+- Depends on: TASK-009.2.10
 - Date: 2026-05-17
-- Summary: Refactor the growing `check` structural inspection helpers into a clearer internal shape so the command stays easy to evolve as more widgets and layout hints are added.
+- Summary: Add a minimal `neotui doctor` command that reports basic terminal/runtime readiness signals without exposing sensitive environment values.
 
 ### Objective
 
