@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-009.2.10** - Consolidar helpers de inspeção estrutural do `check`
+**TASK-009.3.1** - Introduzir `neotui doctor` mínimo
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Refactored the growing `neotui check` structural inspection logic into a single internal summary collector, preserving output while making the command easier to extend and test.
+- Summary: Added a minimal `neotui doctor` command with structured terminal/runtime readiness output covering TTY presence, terminal size probing and environment-signal presence without printing raw environment values.
 
 ---
 
 ## Next Task
 
-**TASK-009.3.1** - Introduzir `neotui doctor` mínimo
+**TASK-009.3.2** - Expandir sinais de diagnóstico do `doctor`
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-009.2.10
+- Depends on: TASK-009.3.1
 - Date: 2026-05-17
-- Summary: Add a minimal `neotui doctor` command that reports basic terminal/runtime readiness signals without exposing sensitive environment values.
+- Summary: Extend `neotui doctor` with a few more actionable readiness checks, such as alternate-screen/raw-mode capability hints and more explicit degradation guidance.
 
 ### Objective
 

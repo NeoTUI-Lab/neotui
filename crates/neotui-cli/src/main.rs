@@ -3,6 +3,7 @@
 
 use std::fmt;
 use std::fs;
+use std::io::{self, IsTerminal};
 use std::path::Path;
 use std::process::ExitCode;
 use std::{collections::BTreeMap, ffi::OsString};
@@ -30,6 +31,8 @@ enum Command {
     Run { file: String },
     /// Parse and validate a NeoTUI DSL file
     Check { file: String },
+    /// Report basic terminal/runtime readiness information
+    Doctor,
 }
 
 fn main() -> ExitCode {
@@ -61,6 +64,10 @@ where
                 ExitCode::from(1)
             }
         },
+        Command::Doctor => {
+            println!("{}", doctor_report());
+            ExitCode::SUCCESS
+        }
     }
 }
 
@@ -183,6 +190,61 @@ fn display_format(format: DslFormat) -> &'static str {
     match format {
         DslFormat::Toml => "toml",
         DslFormat::Json => "json",
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct DoctorReport {
+    backend: &'static str,
+    stdin_tty: bool,
+    stdout_tty: bool,
+    terminal_size: Option<(u16, u16)>,
+    term_env_present: bool,
+    colorterm_env_present: bool,
+}
+
+fn doctor_report() -> String {
+    format_doctor_report(collect_doctor_report())
+}
+
+fn collect_doctor_report() -> DoctorReport {
+    DoctorReport {
+        backend: "crossterm",
+        stdin_tty: io::stdin().is_terminal(),
+        stdout_tty: io::stdout().is_terminal(),
+        terminal_size: terminal::size().ok(),
+        term_env_present: std::env::var_os("TERM").is_some(),
+        colorterm_env_present: std::env::var_os("COLORTERM").is_some(),
+    }
+}
+
+fn format_doctor_report(report: DoctorReport) -> String {
+    let terminal_size = report
+        .terminal_size
+        .map(|(width, height)| format!("{width}x{height}"))
+        .unwrap_or_else(|| "unavailable".into());
+    let readiness = if report.stdin_tty && report.stdout_tty {
+        "ready"
+    } else {
+        "degraded"
+    };
+
+    format!(
+        "doctor {readiness}\nbackend: {}\nstdin_tty: {}\nstdout_tty: {}\nterminal_size: {}\nterm_env_present: {}\ncolorterm_env_present: {}\nhint: this report avoids printing terminal environment values directly",
+        report.backend,
+        bool_label(report.stdin_tty),
+        bool_label(report.stdout_tty),
+        terminal_size,
+        bool_label(report.term_env_present),
+        bool_label(report.colorterm_env_present)
+    )
+}
+
+fn bool_label(value: bool) -> &'static str {
+    if value {
+        "yes"
+    } else {
+        "no"
     }
 }
 
@@ -522,6 +584,7 @@ mod tests {
         match cli.command {
             Command::Run { .. } => panic!("unexpected run command"),
             Command::Check { file } => assert_eq!(file, "examples/hello.toml"),
+            Command::Doctor => panic!("unexpected doctor command"),
         }
     }
 
@@ -532,7 +595,41 @@ mod tests {
         match cli.command {
             Command::Run { file } => assert_eq!(file, "examples/hello.toml"),
             Command::Check { .. } => panic!("unexpected check command"),
+            Command::Doctor => panic!("unexpected doctor command"),
         }
+    }
+
+    #[test]
+    fn clap_parses_doctor_command() {
+        let cli = Cli::parse_from(["neotui", "doctor"]);
+
+        match cli.command {
+            Command::Doctor => {}
+            Command::Run { .. } => panic!("unexpected run command"),
+            Command::Check { .. } => panic!("unexpected check command"),
+        }
+    }
+
+    #[test]
+    fn doctor_report_formats_without_sensitive_env_values() {
+        let output = format_doctor_report(DoctorReport {
+            backend: "crossterm",
+            stdin_tty: true,
+            stdout_tty: false,
+            terminal_size: Some((120, 40)),
+            term_env_present: true,
+            colorterm_env_present: false,
+        });
+
+        assert!(output.contains("doctor degraded"));
+        assert!(output.contains("backend: crossterm"));
+        assert!(output.contains("stdin_tty: yes"));
+        assert!(output.contains("stdout_tty: no"));
+        assert!(output.contains("terminal_size: 120x40"));
+        assert!(output.contains("term_env_present: yes"));
+        assert!(output.contains("colorterm_env_present: no"));
+        assert!(output.contains("avoids printing terminal environment values directly"));
+        assert!(!output.contains("xterm"));
     }
 
     #[test]
