@@ -7,11 +7,12 @@ import subprocess
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterable, Sequence
+from typing import Any, Callable, Iterable, Sequence
 
 __all__ = [
     "__version__",
     "binding_available",
+    "CallbackError",
     "doctor",
     "load",
     "loads_json",
@@ -39,6 +40,18 @@ __version__ = getattr(_native, "__version__", "0.1.0")
 binding_available = _native is not None
 
 
+class CallbackError(RuntimeError):
+    """Raised when a Python-side UI callback fails."""
+
+    def __init__(self, component: "Component", event_name: str, cause: Exception) -> None:
+        self.component_id = component.id
+        self.component_kind = component.kind
+        self.event_name = event_name
+        self.__cause__ = cause
+        target = component.id or component.kind
+        super().__init__(f"callback `{event_name}` failed for component `{target}`: {cause}")
+
+
 @dataclass(slots=True)
 class Component:
     """Declarative Python-side component builder."""
@@ -47,6 +60,7 @@ class Component:
     id: str | None = None
     props: dict[str, Any] = field(default_factory=dict)
     children: list["Component"] = field(default_factory=list)
+    callbacks: dict[str, Callable[..., Any]] = field(default_factory=dict, repr=False, compare=False)
 
     def to_spec(self) -> dict[str, Any]:
         spec: dict[str, Any] = {"kind": self.kind}
@@ -66,6 +80,31 @@ class Component:
             props=dict(spec.get("props", {})),
             children=[cls.from_spec(child) for child in spec.get("children", [])],
         )
+
+    def bind(self, event_name: str, callback: Callable[..., Any]) -> "Component":
+        if not callable(callback):
+            raise TypeError(f"callback for `{event_name}` must be callable")
+        self.callbacks[event_name] = callback
+        return self
+
+    def invoke(self, event_name: str, *args: Any, **kwargs: Any) -> Any:
+        callback = self.callbacks.get(event_name)
+        if callback is None:
+            target = self.id or self.kind
+            raise LookupError(f"component `{target}` has no `{event_name}` callback registered")
+
+        try:
+            return callback(*args, **kwargs)
+        except Exception as exc:
+            raise CallbackError(self, event_name, exc) from exc
+
+    def iter_components(self) -> Iterable["Component"]:
+        yield self
+        for child in self.children:
+            yield from child.iter_components()
+
+    def has_callbacks(self) -> bool:
+        return bool(self.callbacks)
 
 
 @dataclass(slots=True)
@@ -95,6 +134,19 @@ class App:
             schema_version=spec.get("schema_version", "0.1"),
             theme=spec.get("theme"),
         )
+
+    def iter_components(self) -> Iterable[Component]:
+        yield from self.root.iter_components()
+
+    def callback_bindings(self) -> dict[str, list[str]]:
+        bindings: dict[str, list[str]] = {}
+        for component in self.iter_components():
+            if component.callbacks:
+                bindings[component.id or component.kind] = sorted(component.callbacks)
+        return bindings
+
+    def has_callbacks(self) -> bool:
+        return any(component.has_callbacks() for component in self.iter_components())
 
 
 def Label(
@@ -171,11 +223,15 @@ def Button(
     *,
     id: str | None = None,
     variant: str | None = None,
+    on_click: Callable[..., Any] | None = None,
 ) -> Component:
     props: dict[str, Any] = {"text": text}
     if variant is not None:
         props["variant"] = variant
-    return Component("Button", id=id, props=props)
+    component = Component("Button", id=id, props=props)
+    if on_click is not None:
+        component.bind("click", on_click)
+    return component
 
 
 def List(
@@ -209,6 +265,8 @@ def doctor() -> dict[str, object]:
         "version": __version__,
         "binding_available": binding_available,
         "workspace_root_found": _workspace_root() is not None,
+        "callback_contract_available": True,
+        "runtime_callback_bridge": False,
     }
 
 
@@ -239,6 +297,11 @@ def run(app: App, *, cargo_bin: str = "cargo", extra_args: Iterable[str] | None 
     workspace_root = _workspace_root()
     if workspace_root is None:
         raise RuntimeError("could not locate the NeoTUI workspace root from the Python package")
+    if app.has_callbacks():
+        raise RuntimeError(
+            "Python callbacks are declared on this app, but the runtime callback bridge is not implemented yet; "
+            "invoke callbacks directly from Python tests/helpers for now"
+        )
 
     with tempfile.NamedTemporaryFile(
         mode="w",

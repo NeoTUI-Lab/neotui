@@ -28,6 +28,8 @@ def test_package_doctor_summary() -> None:
     assert summary["version"] == "0.1.0"
     assert summary["binding_available"] is False
     assert summary["workspace_root_found"] is True
+    assert summary["callback_contract_available"] is True
+    assert summary["runtime_callback_bridge"] is False
 
 
 def test_app_serializes_nested_components() -> None:
@@ -75,6 +77,56 @@ def test_python_api_exposes_future_widget_builders() -> None:
     assert graph.to_spec()["props"]["title"] == "Latency"
 
 
+def test_button_callback_invokes_successfully() -> None:
+    import neotui
+
+    calls: list[str] = []
+
+    def handler() -> str:
+        calls.append("clicked")
+        return "ok"
+
+    button = neotui.Button("Deploy", id="deploy", on_click=handler)
+
+    assert button.to_spec()["kind"] == "Button"
+    assert "click" not in button.to_spec().get("props", {})
+    assert button.invoke("click") == "ok"
+    assert calls == ["clicked"]
+
+
+def test_button_callback_failure_is_wrapped() -> None:
+    import neotui
+
+    def handler() -> None:
+        raise ValueError("boom")
+
+    button = neotui.Button("Deploy", id="deploy", on_click=handler)
+
+    try:
+        button.invoke("click")
+    except neotui.CallbackError as exc:
+        assert exc.component_id == "deploy"
+        assert exc.component_kind == "Button"
+        assert exc.event_name == "click"
+        assert "callback `click` failed for component `deploy`" in str(exc)
+    else:
+        raise AssertionError("callback failure should be wrapped")
+
+
+def test_app_reports_callback_bindings() -> None:
+    import neotui
+
+    app = neotui.App(
+        neotui.Panel(
+            neotui.Button("Deploy", id="deploy", on_click=lambda: "ok"),
+            neotui.Label("Status"),
+        )
+    )
+
+    assert app.has_callbacks() is True
+    assert app.callback_bindings() == {"deploy": ["click"]}
+
+
 def test_run_builds_cli_command_and_cleans_temp_file(monkeypatch) -> None:
     import neotui
 
@@ -111,6 +163,19 @@ def test_run_builds_cli_command_and_cleans_temp_file(monkeypatch) -> None:
     assert recorded["temp_exists_during_run"] is True
     assert '"kind": "Label"' in recorded["temp_payload"]
     assert recorded["cwd"] == neotui._workspace_root()
+
+
+def test_run_rejects_python_callbacks_until_runtime_bridge_exists() -> None:
+    import neotui
+
+    app = neotui.App(neotui.Button("Deploy", on_click=lambda: "ok"))
+
+    try:
+        neotui.run(app)
+    except RuntimeError as exc:
+        assert "runtime callback bridge is not implemented yet" in str(exc)
+    else:
+        raise AssertionError("run(app) should reject Python callbacks for now")
 
 
 def test_loads_json_builds_app_model() -> None:

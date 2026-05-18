@@ -2,21 +2,21 @@
 
 ## Last Executed Task
 
-**TASK-010.3.5** - Fechar carregamento de DSL no pacote Python
+**TASK-010.4.6** - Fechar contrato de callbacks Python para `Button`
 - Status: Completed
 - Date: 2026-05-17
-- Summary: Completed the Python-side DSL loading slice with `load()`, `loads_json()`, `loads_toml()`, spec-to-model conversion helpers and tests using both inline payloads and shared repository fixtures.
+- Summary: Completed the initial Python callback slice with `Button(on_click=...)`, callback binding/introspection, controlled invocation, wrapped callback failures and an explicit runtime guard while the terminal bridge remains pending.
 
 ---
 
 ## Next Task
 
-**TASK-010.4.1** - Introduzir callbacks Python para `Button`
+**TASK-011.1.1** - Inicializar crate GUI com GTK/VTE
 - Status: Pending
 - Priority: P0
-- Depends on: TASK-010.3.5
+- Depends on: TASK-010.4.6
 - Date: 2026-05-17
-- Summary: Start the callback slice by defining a safe Python-side button callback contract that later runtime work can invoke without exposing raw Rust internals.
+- Summary: Bootstrap the embedded GUI runtime crate so NeoTUI can begin the Linux desktop path on top of the existing terminal-first execution model.
 
 ### Objective
 
