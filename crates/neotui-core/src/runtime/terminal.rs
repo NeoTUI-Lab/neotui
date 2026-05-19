@@ -7,6 +7,7 @@ use crossterm::{
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
 use std::io::{self, Write};
+use tracing::debug;
 
 /// Lifecycle contract for terminal setup and teardown.
 pub trait TerminalLifecycle {
@@ -29,26 +30,32 @@ impl TerminalSession {
     /// Enter raw mode and alternate screen
     pub fn enter(&mut self) -> io::Result<()> {
         if self.is_active {
+            debug!(target: "neotui::terminal", "terminal session already active");
             return Ok(());
         }
 
+        debug!(target: "neotui::terminal", "entering terminal session");
         enable_raw_mode()?;
         execute!(io::stdout(), EnterAlternateScreen, EnableMouseCapture)?;
 
         self.is_active = true;
+        debug!(target: "neotui::terminal", "terminal session entered");
         Ok(())
     }
 
     /// Leave alternate screen and restore terminal
     pub fn exit(&mut self) -> io::Result<()> {
         if !self.is_active {
+            debug!(target: "neotui::terminal", "terminal session already inactive");
             return Ok(());
         }
 
+        debug!(target: "neotui::terminal", "restoring terminal session");
         execute!(io::stdout(), LeaveAlternateScreen, DisableMouseCapture)?;
         disable_raw_mode()?;
 
         self.is_active = false;
+        debug!(target: "neotui::terminal", "terminal session restored");
         Ok(())
     }
 

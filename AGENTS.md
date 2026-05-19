@@ -1,22 +1,78 @@
-# AGENTS.md — NeoTUI
+# AGENTS.md - NeoTUI
 
-## Last Executed Task
+## Current Execution Tracking
 
-**TASK-010.4.6** - Fechar contrato de callbacks Python para `Button`
+This header supersedes the legacy task-only block below. From this point forward, execution status should be recorded at the US level.
+
+### Last Closed Epic
+
+**EPIC-011** - GUI embutida Linux
+- Status: Closed
+- Date: 2026-05-18
+- Summary: The MVP GUI path now has a dedicated `neotui-gui` binary, GTK/VTE launch bootstrap, CLI-to-GUI forwarding contract, GUI readiness diagnostics, updated docs and a primary `neotui run <file> --gui` bridge through the standalone GUI entrypoint.
+
+### Last Executed US
+
+**US-012.1** - tracing por subsistema
 - Status: Completed
-- Date: 2026-05-17
-- Summary: Completed the initial Python callback slice with `Button(on_click=...)`, callback binding/introspection, controlled invocation, wrapped callback failures and an explicit runtime guard while the terminal bridge remains pending.
+- Priority: P0
+- Depends on: EPIC-011
+- Date: 2026-05-18
+- Summary: Added opt-in tracing gated by `NEOTUI_DEBUG`, with coverage across `cli`, `gui`, `dsl`, `registry`, `runtime` and `terminal`, while preserving the security rule of not logging full UI payloads by default.
+
+### Next US
+
+**US-012.2** - erros amigaveis e categorizados
+- Status: Pending
+- Priority: P0
+- Depends on: US-012.1
+- Date: 2026-05-18
+- Summary: Consolidate user-facing error categories and actionable diagnostics across CLI, DSL loading, runtime bootstrap and GUI launch flows so failures stay readable, consistent and safe.
+
+### Objective
+
+Establish US-level execution tracking from this point forward and continue EPIC-012 with user-facing operational diagnostics.
+
+### Scope
+
+- Track progress by closed US, not only by internal tasks.
+- Keep EPIC-011 recorded as closed.
+- Continue implementation from the next closed-ready US in roadmap order.
+- Preserve task granularity inside code/tests when useful, but report progress at the US level in this file.
+
+### Acceptance Criteria
+
+1. `AGENTS.md` records the latest closed epic and latest executed US.
+2. The next pending item is represented as a US, not a task.
+3. EPIC-011 remains clearly closed.
+4. Future execution can proceed directly from roadmap USs.
+
+### Out of Scope
+
+- Rewriting the full project guide below this operational header.
+- Backfilling every historical task with US-level summaries.
+- Changing roadmap order without a product decision.
+
+---
+# AGENTS.md â€” NeoTUI
+
+## Last Closed Epic
+
+**TASK-011.3.2** - Avaliar ponte CLI -> binÃ¡rio `neotui-gui`
+- Status: Closed
+- Date: 2026-05-18
+- Summary: The MVP GUI path now has a dedicated `neotui-gui` binary, GTK/VTE launch bootstrap, CLI-to-GUI forwarding contract, GUI readiness diagnostics, updated docs and a primary `neotui run <file> --gui` bridge through the standalone GUI entrypoint.
 
 ---
 
-## Next Task
+## Last Executed US
 
-**TASK-011.1.1** - Inicializar crate GUI com GTK/VTE
-- Status: Pending
+**TASK-011.3.3** - Consolidar fallback e empacotamento do bridge GUI
+- Status: Completed
 - Priority: P0
-- Depends on: TASK-010.4.6
-- Date: 2026-05-17
-- Summary: Bootstrap the embedded GUI runtime crate so NeoTUI can begin the Linux desktop path on top of the existing terminal-first execution model.
+- Depends on: EPIC-011
+- Date: 2026-05-18
+- Summary: Added opt-in tracing gated by `NEOTUI_DEBUG`, with coverage across `cli`, `gui`, `dsl`, `registry`, `runtime` and `terminal`, while preserving the security rule of not logging full UI payloads by default.
 
 ### Objective
 
@@ -94,7 +150,7 @@ The GUI mode for the MVP must reuse the terminal renderer through an embedded te
 
 ## 2. Product Direction
 
-NeoTUI should feel like a lightweight “React for the terminal”, but without copying React internals unnecessarily.
+NeoTUI should feel like a lightweight â€œReact for the terminalâ€, but without copying React internals unnecessarily.
 
 The framework must provide:
 
@@ -137,23 +193,23 @@ The core architecture should follow this conceptual pipeline:
 
 ```text
 AppSpec / Python API
-        │
-        ▼
+        â”‚
+        â–¼
 ComponentTree
-        │
-        ▼
+        â”‚
+        â–¼
 StateStore + EventLoop
-        │
-        ▼
+        â”‚
+        â–¼
 LayoutEngine
-        │
-        ▼
+        â”‚
+        â–¼
 FrameBuffer
-        │
-        ▼
+        â”‚
+        â–¼
 ANSI Renderer
-        │
-        ▼
+        â”‚
+        â–¼
 Terminal / SSH / Embedded VTE Window
 ```
 
@@ -273,57 +329,57 @@ Use this structure:
 
 ```text
 .
-├── AGENTS.md
-├── README.md
-├── Cargo.toml
-├── crates/
-│   ├── neotui-core/
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   │       ├── lib.rs
-│   │       ├── component/
-│   │       ├── runtime/
-│   │       ├── event/
-│   │       ├── layout/
-│   │       ├── render/
-│   │       ├── style/
-│   │       ├── theme/
-│   │       ├── dsl/
-│   │       ├── registry/
-│   │       ├── widgets/
-│   │       └── testing/
-│   ├── neotui-cli/
-│   │   ├── Cargo.toml
-│   │   └── src/
-│   └── neotui-gui/
-│       ├── Cargo.toml
-│       └── src/
-├── python/
-│   └── neotui-py/
-│       ├── pyproject.toml
-│       ├── README.md
-│       ├── src/
-│       │   └── neotui/
-│       └── tests/
-├── examples/
-│   ├── hello.toml
-│   ├── dashboard.toml
-│   ├── dashboard.yaml
-│   ├── list-demo.toml
-│   ├── theme-demo.toml
-│   └── python/
-├── docs/
-│   ├── quickstart.md
-│   ├── architecture.md
-│   ├── dsl.md
-│   ├── widget-authoring.md
-│   └── roadmap.md
-├── scripts/
-│   ├── dev-check.sh
-│   └── package-linux.sh
-└── .github/
-    └── workflows/
-        └── ci.yml
+â”œâ”€â”€ AGENTS.md
+â”œâ”€â”€ README.md
+â”œâ”€â”€ Cargo.toml
+â”œâ”€â”€ crates/
+â”‚   â”œâ”€â”€ neotui-core/
+â”‚   â”‚   â”œâ”€â”€ Cargo.toml
+â”‚   â”‚   â””â”€â”€ src/
+â”‚   â”‚       â”œâ”€â”€ lib.rs
+â”‚   â”‚       â”œâ”€â”€ component/
+â”‚   â”‚       â”œâ”€â”€ runtime/
+â”‚   â”‚       â”œâ”€â”€ event/
+â”‚   â”‚       â”œâ”€â”€ layout/
+â”‚   â”‚       â”œâ”€â”€ render/
+â”‚   â”‚       â”œâ”€â”€ style/
+â”‚   â”‚       â”œâ”€â”€ theme/
+â”‚   â”‚       â”œâ”€â”€ dsl/
+â”‚   â”‚       â”œâ”€â”€ registry/
+â”‚   â”‚       â”œâ”€â”€ widgets/
+â”‚   â”‚       â””â”€â”€ testing/
+â”‚   â”œâ”€â”€ neotui-cli/
+â”‚   â”‚   â”œâ”€â”€ Cargo.toml
+â”‚   â”‚   â””â”€â”€ src/
+â”‚   â””â”€â”€ neotui-gui/
+â”‚       â”œâ”€â”€ Cargo.toml
+â”‚       â””â”€â”€ src/
+â”œâ”€â”€ python/
+â”‚   â””â”€â”€ neotui-py/
+â”‚       â”œâ”€â”€ pyproject.toml
+â”‚       â”œâ”€â”€ README.md
+â”‚       â”œâ”€â”€ src/
+â”‚       â”‚   â””â”€â”€ neotui/
+â”‚       â””â”€â”€ tests/
+â”œâ”€â”€ examples/
+â”‚   â”œâ”€â”€ hello.toml
+â”‚   â”œâ”€â”€ dashboard.toml
+â”‚   â”œâ”€â”€ dashboard.yaml
+â”‚   â”œâ”€â”€ list-demo.toml
+â”‚   â”œâ”€â”€ theme-demo.toml
+â”‚   â””â”€â”€ python/
+â”œâ”€â”€ docs/
+â”‚   â”œâ”€â”€ quickstart.md
+â”‚   â”œâ”€â”€ architecture.md
+â”‚   â”œâ”€â”€ dsl.md
+â”‚   â”œâ”€â”€ widget-authoring.md
+â”‚   â””â”€â”€ roadmap.md
+â”œâ”€â”€ scripts/
+â”‚   â”œâ”€â”€ dev-check.sh
+â”‚   â””â”€â”€ package-linux.sh
+â””â”€â”€ .github/
+    â””â”€â”€ workflows/
+        â””â”€â”€ ci.yml
 ```
 
 If the repository already has a different structure, adapt minimally and preserve existing working code.
@@ -711,15 +767,15 @@ Recommended structure:
 
 ```text
 fixtures/
-├── valid/
-│   ├── hello.toml
-│   ├── dashboard.toml
-│   └── nested-layout.toml
-└── invalid/
-    ├── unknown-component.toml
-    ├── missing-required-prop.toml
-    ├── invalid-prop-type.toml
-    └── invalid-children.toml
+â”œâ”€â”€ valid/
+â”‚   â”œâ”€â”€ hello.toml
+â”‚   â”œâ”€â”€ dashboard.toml
+â”‚   â””â”€â”€ nested-layout.toml
+â””â”€â”€ invalid/
+    â”œâ”€â”€ unknown-component.toml
+    â”œâ”€â”€ missing-required-prop.toml
+    â”œâ”€â”€ invalid-prop-type.toml
+    â””â”€â”€ invalid-children.toml
 ```
 
 ---
@@ -1056,7 +1112,7 @@ cargo run -p neotui-cli -- run examples/hello.toml
 Expected behavior:
 
 - enter alternate screen;
-- render “Hello NeoTUI”;
+- render â€œHello NeoTUIâ€;
 - exit with Ctrl+Q;
 - restore terminal.
 

@@ -3,6 +3,7 @@
 
 use std::panic::{self, PanicInfo};
 use std::sync::Once;
+use tracing::error;
 
 static INIT_PANIC_HOOK: Once = Once::new();
 
@@ -23,6 +24,14 @@ fn panic_handler(info: &PanicInfo) {
         // Fallback if location is not available
         panic::Location::caller()
     });
+
+    error!(
+        target: "neotui::runtime",
+        file = location.file(),
+        line = location.line(),
+        column = location.column(),
+        "panic hook triggered"
+    );
 
     eprintln!();
     eprintln!("=== NeoTUI Panic ===");

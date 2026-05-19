@@ -7,8 +7,10 @@ use crate::component::{ComponentNode, ComponentTree, LayoutHints};
 use crate::dsl::{AppSpec, ComponentSpec, Value};
 use crate::render::TextAlign;
 use crate::widgets::{
-    Divider, DividerOrientation, Label, Panel, Spacer, Stack, StackAlign, StackJustify,
+    Button, Divider, DividerOrientation, Graph, Label, List, Panel, Spacer, Stack, StackAlign,
+    StackJustify, TextBlock,
 };
+use tracing::debug;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct ComponentRegistry;
@@ -19,6 +21,11 @@ impl ComponentRegistry {
     }
 
     pub fn build_tree(&self, spec: &AppSpec) -> Result<ComponentTree, RegistryError> {
+        debug!(
+            target: "neotui::registry",
+            root_kind = spec.root.kind.as_str(),
+            "building component tree"
+        );
         let root = self.build_node(&spec.root, "root")?;
         Ok(ComponentTree::new(root))
     }
@@ -28,6 +35,13 @@ impl ComponentRegistry {
         spec: &ComponentSpec,
         path: &str,
     ) -> Result<ComponentNode, RegistryError> {
+        debug!(
+            target: "neotui::registry",
+            path,
+            kind = spec.kind.as_str(),
+            child_count = spec.children.len(),
+            "building component node"
+        );
         let component = self.instantiate_component(spec, path)?;
         let layout_hints = layout_hints_from_spec(spec, path)?;
         let children = spec
@@ -48,12 +62,47 @@ impl ComponentRegistry {
         path: &str,
     ) -> Result<Box<dyn crate::component::Component>, RegistryError> {
         let id = component_id_for(spec, path);
+        debug!(
+            target: "neotui::registry",
+            path,
+            kind = spec.kind.as_str(),
+            component_id = id.as_str(),
+            "instantiating component"
+        );
 
         match spec.kind.as_str() {
             "Label" => {
                 let text = required_string(spec, path, "text")?;
                 let align = optional_align(spec, path)?;
                 Ok(Box::new(Label::new(id, text).with_align(align)))
+            }
+            "TextBlock" => {
+                let text = required_string(spec, path, "text")?;
+                Ok(Box::new(TextBlock::new(id, text)))
+            }
+            "Button" => {
+                let text = required_string(spec, path, "text")?;
+                let mut button = Button::new(id, text);
+                if let Some(variant) = optional_string(spec, path, "variant")? {
+                    button = button.with_variant(variant);
+                }
+                Ok(Box::new(button))
+            }
+            "List" => {
+                let items = required_string_array(spec, path, "items")?;
+                let mut list = List::new(id, items);
+                if let Some(title) = optional_string(spec, path, "title")? {
+                    list = list.with_title(title);
+                }
+                Ok(Box::new(list))
+            }
+            "Graph" => {
+                let values = required_number_array(spec, path, "values")?;
+                let mut graph = Graph::new(id, values);
+                if let Some(title) = optional_string(spec, path, "title")? {
+                    graph = graph.with_title(title);
+                }
+                Ok(Box::new(graph))
             }
             "Panel" => {
                 let mut panel = Panel::new(id);
@@ -100,12 +149,6 @@ impl ComponentRegistry {
                         .with_justify(justify),
                 ))
             }
-            "TextBlock" | "Button" | "List" | "Graph" => {
-                Err(RegistryError::UnimplementedComponent {
-                    path: path.into(),
-                    kind: spec.kind.clone(),
-                })
-            }
             other => Err(RegistryError::UnknownComponent {
                 path: path.into(),
                 kind: other.into(),
@@ -117,10 +160,6 @@ impl ComponentRegistry {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RegistryError {
     UnknownComponent {
-        path: String,
-        kind: String,
-    },
-    UnimplementedComponent {
         path: String,
         kind: String,
     },
@@ -145,12 +184,6 @@ impl fmt::Display for RegistryError {
         match self {
             Self::UnknownComponent { path, kind } => {
                 write!(f, "{path}: unknown component kind `{kind}`")
-            }
-            Self::UnimplementedComponent { path, kind } => {
-                write!(
-                    f,
-                    "{path}: component `{kind}` is known but not implemented yet"
-                )
             }
             Self::MissingProperty { path, property } => {
                 write!(
@@ -243,6 +276,73 @@ fn optional_char(
     }
 
     Ok(Some(symbol))
+}
+
+fn required_string_array(
+    spec: &ComponentSpec,
+    path: &str,
+    property: &str,
+) -> Result<Vec<String>, RegistryError> {
+    match spec.props.get(property) {
+        Some(Value::Array(values)) => values
+            .iter()
+            .map(|value| match value {
+                Value::String(value) => Ok(value.clone()),
+                _ => Err(RegistryError::InvalidPropertyType {
+                    path: path.into(),
+                    property: property.into(),
+                    expected: "an array of strings".into(),
+                }),
+            })
+            .collect(),
+        Some(_) => Err(RegistryError::InvalidPropertyType {
+            path: path.into(),
+            property: property.into(),
+            expected: "an array of strings".into(),
+        }),
+        None => Err(RegistryError::MissingProperty {
+            path: path.into(),
+            property: property.into(),
+        }),
+    }
+}
+
+fn required_number_array(
+    spec: &ComponentSpec,
+    path: &str,
+    property: &str,
+) -> Result<Vec<f64>, RegistryError> {
+    match spec.props.get(property) {
+        Some(Value::Array(values)) => values
+            .iter()
+            .map(|value| match value {
+                Value::Integer(value) => Ok(*value as f64),
+                Value::Float(value) => {
+                    value
+                        .parse::<f64>()
+                        .map_err(|_| RegistryError::InvalidPropertyValue {
+                            path: path.into(),
+                            property: property.into(),
+                            message: format!("property `{property}` must contain valid numbers"),
+                        })
+                }
+                _ => Err(RegistryError::InvalidPropertyType {
+                    path: path.into(),
+                    property: property.into(),
+                    expected: "an array of numbers".into(),
+                }),
+            })
+            .collect(),
+        Some(_) => Err(RegistryError::InvalidPropertyType {
+            path: path.into(),
+            property: property.into(),
+            expected: "an array of numbers".into(),
+        }),
+        None => Err(RegistryError::MissingProperty {
+            path: path.into(),
+            property: property.into(),
+        }),
+    }
 }
 
 fn optional_align(spec: &ComponentSpec, path: &str) -> Result<TextAlign, RegistryError> {
@@ -652,28 +752,68 @@ mod tests {
     }
 
     #[test]
-    fn registry_rejects_known_but_unimplemented_component() {
+    fn registry_builds_tree_for_new_leaf_widgets() {
         let spec = AppSpec {
             schema_version: "0.1".into(),
             theme: None,
             root: ComponentSpec {
-                kind: "Button".into(),
-                id: None,
+                kind: "VBox".into(),
+                id: Some("layout".into()),
                 props: BTreeMap::new(),
-                children: Vec::new(),
+                children: vec![
+                    ComponentSpec {
+                        kind: "Button".into(),
+                        id: Some("deploy".into()),
+                        props: BTreeMap::from([("text".into(), Value::String("Deploy".into()))]),
+                        children: Vec::new(),
+                    },
+                    ComponentSpec {
+                        kind: "TextBlock".into(),
+                        id: Some("notes".into()),
+                        props: BTreeMap::from([(
+                            "text".into(),
+                            Value::String("alpha\nbeta".into()),
+                        )]),
+                        children: Vec::new(),
+                    },
+                    ComponentSpec {
+                        kind: "List".into(),
+                        id: Some("services".into()),
+                        props: BTreeMap::from([
+                            (
+                                "items".into(),
+                                Value::Array(vec![
+                                    Value::String("api".into()),
+                                    Value::String("jobs".into()),
+                                ]),
+                            ),
+                            ("title".into(), Value::String("Services".into())),
+                        ]),
+                        children: Vec::new(),
+                    },
+                    ComponentSpec {
+                        kind: "Graph".into(),
+                        id: Some("latency".into()),
+                        props: BTreeMap::from([(
+                            "values".into(),
+                            Value::Array(vec![Value::Integer(1), Value::Float("2.5".into())]),
+                        )]),
+                        children: Vec::new(),
+                    },
+                ],
             },
         };
 
-        let error = ComponentRegistry::new()
+        let tree = ComponentRegistry::new()
             .build_tree(&spec)
-            .expect_err("button should not instantiate yet");
+            .expect("new widgets should instantiate");
 
         assert_eq!(
-            error,
-            RegistryError::UnimplementedComponent {
-                path: "root".into(),
-                kind: "Button".into(),
-            }
+            tree.ids_depth_first()
+                .into_iter()
+                .map(|id| id.0)
+                .collect::<Vec<_>>(),
+            vec!["layout", "deploy", "notes", "services", "latency"]
         );
     }
 

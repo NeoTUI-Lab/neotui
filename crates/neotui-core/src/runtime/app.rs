@@ -9,6 +9,7 @@ use crate::runtime::terminal::{TerminalLifecycle, TerminalSession};
 use crossterm::event;
 use std::io;
 use std::time::Duration;
+use tracing::debug;
 
 /// Abstraction over event polling so the runtime can be unit tested.
 pub trait EventSource {
@@ -130,10 +131,20 @@ where
     where
         F: FnMut(Event) -> EventResult,
     {
+        debug!(
+            target: "neotui::runtime",
+            tick_rate_ms = self.tick_rate.map(|rate| rate.as_millis() as u64),
+            "starting app runtime loop"
+        );
         loop {
             let iteration = self.run_once(&mut on_event)?;
 
             if iteration.should_quit {
+                debug!(
+                    target: "neotui::runtime",
+                    event = runtime_event_kind(&iteration.event),
+                    "runtime loop received quit signal"
+                );
                 return Ok(());
             }
         }
@@ -148,6 +159,13 @@ where
             &self.shortcuts,
         );
         let result = on_event(event.clone());
+        debug!(
+            target: "neotui::runtime",
+            event = runtime_event_kind(&event),
+            requests_render = result.requests_render() || event.requests_render(),
+            produced_command = result.command().is_some(),
+            "processed runtime event"
+        );
 
         Ok(RuntimeIteration::new(event, result))
     }
@@ -203,6 +221,20 @@ fn normalize_runtime_event(event: Event, shortcuts: &GlobalShortcuts) -> Event {
     }
 
     event
+}
+
+fn runtime_event_kind(event: &Event) -> &'static str {
+    match event {
+        Event::Key(_) => "key",
+        Event::Mouse(_) => "mouse",
+        Event::Scroll(_) => "scroll",
+        Event::Resize { .. } => "resize",
+        Event::FocusGained(_) => "focus-gained",
+        Event::FocusLost(_) => "focus-lost",
+        Event::Tick => "tick",
+        Event::QuitRequested => "quit-requested",
+        Event::HelpRequested => "help-requested",
+    }
 }
 
 #[cfg(test)]

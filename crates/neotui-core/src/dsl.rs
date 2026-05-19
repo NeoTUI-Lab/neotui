@@ -5,6 +5,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use serde::Deserialize;
+use tracing::debug;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AppSpec {
@@ -15,18 +16,36 @@ pub struct AppSpec {
 
 impl AppSpec {
     pub fn from_toml_str(input: &str) -> Result<Self, DslError> {
+        debug!(
+            target: "neotui::dsl",
+            format = "toml",
+            input_bytes = input.len(),
+            "parsing app spec"
+        );
         let raw: RawAppSpec =
             toml::from_str(input).map_err(|source| DslError::ParseToml { source })?;
         raw.try_into()
     }
 
     pub fn from_json_str(input: &str) -> Result<Self, DslError> {
+        debug!(
+            target: "neotui::dsl",
+            format = "json",
+            input_bytes = input.len(),
+            "parsing app spec"
+        );
         let raw: RawAppSpec =
             serde_json::from_str(input).map_err(|source| DslError::ParseJson { source })?;
         raw.try_into()
     }
 
     pub fn validate(&self) -> Result<(), ValidationErrors> {
+        debug!(
+            target: "neotui::dsl",
+            root_kind = self.root.kind.as_str(),
+            has_theme = self.theme.is_some(),
+            "validating app spec"
+        );
         DslValidator::new().validate(self)
     }
 }
@@ -183,8 +202,19 @@ impl DslValidator {
         self.validate_component(&spec.root, "root", &mut errors);
 
         if errors.is_empty() {
+            debug!(
+                target: "neotui::dsl",
+                root_kind = spec.root.kind.as_str(),
+                "app spec validation passed"
+            );
             Ok(())
         } else {
+            debug!(
+                target: "neotui::dsl",
+                root_kind = spec.root.kind.as_str(),
+                error_count = errors.len(),
+                "app spec validation failed"
+            );
             Err(ValidationErrors::new(errors))
         }
     }
@@ -284,6 +314,25 @@ impl DslValidator {
             "Panel" => {
                 validate_optional_string_prop(component, path, "title", errors);
             }
+            "TextBlock" => {
+                validate_required_string_prop(component, path, "text", errors);
+                validate_no_children(component, path, errors);
+            }
+            "Button" => {
+                validate_required_string_prop(component, path, "text", errors);
+                validate_optional_string_prop(component, path, "variant", errors);
+                validate_no_children(component, path, errors);
+            }
+            "List" => {
+                validate_required_string_array_prop(component, path, "items", errors);
+                validate_optional_string_prop(component, path, "title", errors);
+                validate_no_children(component, path, errors);
+            }
+            "Graph" => {
+                validate_required_number_array_prop(component, path, "values", errors);
+                validate_optional_string_prop(component, path, "title", errors);
+                validate_no_children(component, path, errors);
+            }
             _ => {}
         }
     }
@@ -351,6 +400,58 @@ fn validate_optional_string_prop(
                 format!("property `{prop}` must be a string"),
             )),
         }
+    }
+}
+
+fn validate_required_string_array_prop(
+    component: &ComponentSpec,
+    path: &str,
+    prop: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    match component.props.get(prop) {
+        Some(Value::Array(values))
+            if values
+                .iter()
+                .all(|value| matches!(value, Value::String(item) if !item.trim().is_empty())) => {}
+        Some(Value::Array(_)) => errors.push(ValidationError::new(
+            format!("{path}.props.{prop}"),
+            format!("property `{prop}` must be an array of non-empty strings"),
+        )),
+        Some(_) => errors.push(ValidationError::new(
+            format!("{path}.props.{prop}"),
+            format!("property `{prop}` must be an array of non-empty strings"),
+        )),
+        None => errors.push(ValidationError::new(
+            format!("{path}.props.{prop}"),
+            format!("missing required property `{prop}`"),
+        )),
+    }
+}
+
+fn validate_required_number_array_prop(
+    component: &ComponentSpec,
+    path: &str,
+    prop: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    match component.props.get(prop) {
+        Some(Value::Array(values))
+            if values
+                .iter()
+                .all(|value| matches!(value, Value::Integer(_) | Value::Float(_))) => {}
+        Some(Value::Array(_)) => errors.push(ValidationError::new(
+            format!("{path}.props.{prop}"),
+            format!("property `{prop}` must be an array of numbers"),
+        )),
+        Some(_) => errors.push(ValidationError::new(
+            format!("{path}.props.{prop}"),
+            format!("property `{prop}` must be an array of numbers"),
+        )),
+        None => errors.push(ValidationError::new(
+            format!("{path}.props.{prop}"),
+            format!("missing required property `{prop}`"),
+        )),
     }
 }
 
@@ -771,6 +872,94 @@ align = "center"
         };
 
         assert_eq!(spec.validate(), Ok(()));
+    }
+
+    #[test]
+    fn validator_accepts_button_list_and_graph_props() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "VBox".into(),
+                id: None,
+                props: BTreeMap::new(),
+                children: vec![
+                    ComponentSpec {
+                        kind: "Button".into(),
+                        id: None,
+                        props: BTreeMap::from([("text".into(), Value::String("Deploy".into()))]),
+                        children: Vec::new(),
+                    },
+                    ComponentSpec {
+                        kind: "List".into(),
+                        id: None,
+                        props: BTreeMap::from([(
+                            "items".into(),
+                            Value::Array(vec![
+                                Value::String("api".into()),
+                                Value::String("jobs".into()),
+                            ]),
+                        )]),
+                        children: Vec::new(),
+                    },
+                    ComponentSpec {
+                        kind: "Graph".into(),
+                        id: None,
+                        props: BTreeMap::from([(
+                            "values".into(),
+                            Value::Array(vec![Value::Integer(1), Value::Float("2.5".into())]),
+                        )]),
+                        children: Vec::new(),
+                    },
+                ],
+            },
+        };
+
+        assert_eq!(spec.validate(), Ok(()));
+    }
+
+    #[test]
+    fn validator_rejects_invalid_list_and_graph_arrays() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "VBox".into(),
+                id: None,
+                props: BTreeMap::new(),
+                children: vec![
+                    ComponentSpec {
+                        kind: "List".into(),
+                        id: None,
+                        props: BTreeMap::from([(
+                            "items".into(),
+                            Value::Array(vec![Value::Integer(1)]),
+                        )]),
+                        children: Vec::new(),
+                    },
+                    ComponentSpec {
+                        kind: "Graph".into(),
+                        id: None,
+                        props: BTreeMap::from([(
+                            "values".into(),
+                            Value::Array(vec![Value::String("oops".into())]),
+                        )]),
+                        children: Vec::new(),
+                    },
+                ],
+            },
+        };
+
+        let rendered = spec
+            .validate()
+            .expect_err("invalid arrays should fail")
+            .to_string();
+        assert!(rendered.contains(
+            "root.children[0].props.items: property `items` must be an array of non-empty strings"
+        ));
+        assert!(rendered.contains(
+            "root.children[1].props.values: property `values` must be an array of numbers"
+        ));
     }
 
     #[test]

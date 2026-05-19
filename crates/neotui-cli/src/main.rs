@@ -4,19 +4,22 @@
 use std::fmt;
 use std::fs;
 use std::io::{self, IsTerminal};
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::Command as ProcessCommand;
 use std::process::ExitCode;
 use std::{collections::BTreeMap, ffi::OsString};
 
 use clap::{Parser, Subcommand};
 use crossterm::terminal;
 use neotui_core::component::{ComponentTree, EventContext, LayoutContext};
+use neotui_core::diagnostics;
 use neotui_core::dsl::{AppSpec, DslFormat};
 use neotui_core::event::{Command as AppCommand, Event, EventResult};
 use neotui_core::layout::Rect;
 use neotui_core::registry::ComponentRegistry;
 use neotui_core::render::{AnsiRenderer, ScreenBuffer};
 use neotui_core::runtime::{panic, AppRuntime, TerminalSession};
+use tracing::debug;
 
 #[derive(Debug, Parser)]
 #[command(name = "neotui", version, about = "NeoTUI command-line interface")]
@@ -27,8 +30,22 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// Execute a NeoTUI DSL file in the terminal runtime
-    Run { file: String },
+    /// Execute a NeoTUI DSL file in the terminal runtime or inside the embedded GTK/VTE GUI
+    Run {
+        file: String,
+        /// Launch the app inside the embedded Linux GTK/VTE window instead of the current terminal
+        #[arg(long)]
+        gui: bool,
+        /// Override which CLI program the GUI child process should execute for `run <file>`
+        #[arg(long, requires = "gui")]
+        gui_cli_program: Option<String>,
+        /// Override the working directory used by the GUI child process
+        #[arg(long, requires = "gui")]
+        gui_working_directory: Option<String>,
+        /// Forward one additional argument to the child `run` command inside the GUI; repeat as needed
+        #[arg(long = "gui-forward-arg", requires = "gui")]
+        gui_forward_args: Vec<String>,
+    },
     /// Parse and validate a NeoTUI DSL file
     Check { file: String },
     /// Report basic terminal/runtime readiness information
@@ -36,6 +53,7 @@ enum Command {
 }
 
 fn main() -> ExitCode {
+    diagnostics::init_tracing();
     run(std::env::args())
 }
 
@@ -45,9 +63,22 @@ where
     T: Into<OsString> + Clone,
 {
     let cli = Cli::parse_from(args);
+    debug!(target: "neotui::cli", command = cli_command_name(&cli.command), "parsed CLI command");
 
     match cli.command {
-        Command::Run { file } => match run_file(Path::new(&file)) {
+        Command::Run {
+            file,
+            gui,
+            gui_cli_program,
+            gui_working_directory,
+            gui_forward_args,
+        } => match run_dispatch(
+            Path::new(&file),
+            gui,
+            gui_cli_program.as_deref(),
+            gui_working_directory.as_deref(),
+            &gui_forward_args,
+        ) {
             Ok(()) => ExitCode::SUCCESS,
             Err(message) => {
                 eprintln!("{message}");
@@ -75,6 +106,19 @@ struct LoadedApp {
     format: DslFormat,
     spec: AppSpec,
     tree: ComponentTree,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GuiForwardingContract {
+    cli_program: String,
+    working_directory: Option<String>,
+    forwarded_run_args: Vec<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GuiBinaryInvocation {
+    program: PathBuf,
+    args: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -206,6 +250,11 @@ struct DoctorReport {
     raw_mode_support: &'static str,
     alternate_screen_support: &'static str,
     gui_support: &'static str,
+    gui_platform_supported: bool,
+    gui_session_available: bool,
+    gui_gtk_backend_declared: bool,
+    gui_vte_backend_declared: bool,
+    gui_reason: &'static str,
     debug_mode: &'static str,
     term_env_present: bool,
     colorterm_env_present: bool,
@@ -228,14 +277,15 @@ fn collect_doctor_report() -> DoctorReport {
     let mouse_support = detect_mouse_support(stdin_tty, stdout_tty, terminal_family);
     let raw_mode_support = detect_raw_mode_support(stdin_tty, stdout_tty, terminal_family);
     let alternate_screen_support = detect_alternate_screen_support(stdout_tty, terminal_family);
-    let gui_support = detect_gui_support();
+    let gui_availability = neotui_gui::detect_gui_availability();
+    let gui_support = detect_gui_support(&gui_availability);
     let debug_mode = detect_debug_mode(std::env::var_os("NEOTUI_DEBUG").as_ref());
     let terminal_size_class = classify_terminal_size(terminal_size);
     let hints = collect_doctor_hints(
         stdin_tty,
         stdout_tty,
         terminal_size_class,
-        gui_support,
+        &gui_availability,
         debug_mode,
     );
     let readiness = if stdin_tty
@@ -260,6 +310,11 @@ fn collect_doctor_report() -> DoctorReport {
         raw_mode_support,
         alternate_screen_support,
         gui_support,
+        gui_platform_supported: gui_availability.platform_supported,
+        gui_session_available: gui_availability.session_available,
+        gui_gtk_backend_declared: gui_availability.gtk_backend_declared,
+        gui_vte_backend_declared: gui_availability.vte_backend_declared,
+        gui_reason: gui_availability.reason,
         debug_mode,
         term_env_present: term_env.is_some(),
         colorterm_env_present: colorterm_env.is_some(),
@@ -276,7 +331,7 @@ fn format_doctor_report(report: DoctorReport) -> String {
     let hints = report.hints.join("; ");
 
     format!(
-        "doctor {}\nbackend: {}\nstdin_tty: {}\nstdout_tty: {}\nterminal_size: {}\nterminal_size_class: {}\nterminal_family: {}\ncolor_support: {}\nmouse_support: {}\nraw_mode_support: {}\nalternate_screen_support: {}\ngui_support: {}\ndebug_mode: {}\nterm_env_present: {}\ncolorterm_env_present: {}\nhint: {}\nnote: this report avoids printing terminal environment values directly",
+        "doctor {}\nbackend: {}\nstdin_tty: {}\nstdout_tty: {}\nterminal_size: {}\nterminal_size_class: {}\nterminal_family: {}\ncolor_support: {}\nmouse_support: {}\nraw_mode_support: {}\nalternate_screen_support: {}\ngui_support: {}\ngui_platform_supported: {}\ngui_session_available: {}\ngui_gtk_backend_declared: {}\ngui_vte_backend_declared: {}\ngui_reason: {}\ndebug_mode: {}\nterm_env_present: {}\ncolorterm_env_present: {}\nhint: {}\nnote: this report avoids printing terminal environment values directly",
         report.readiness,
         report.backend,
         bool_label(report.stdin_tty),
@@ -289,6 +344,11 @@ fn format_doctor_report(report: DoctorReport) -> String {
         report.raw_mode_support,
         report.alternate_screen_support,
         report.gui_support,
+        bool_label(report.gui_platform_supported),
+        bool_label(report.gui_session_available),
+        bool_label(report.gui_gtk_backend_declared),
+        bool_label(report.gui_vte_backend_declared),
+        report.gui_reason,
         report.debug_mode,
         bool_label(report.term_env_present),
         bool_label(report.colorterm_env_present),
@@ -383,25 +443,24 @@ fn detect_alternate_screen_support(stdout_tty: bool, terminal_family: &str) -> &
     }
 }
 
-fn detect_gui_support() -> &'static str {
+fn detect_gui_support(gui_availability: &neotui_gui::GuiAvailability) -> &'static str {
     let gui_manifest_present = Path::new("crates/neotui-gui/Cargo.toml").exists();
 
     if !gui_manifest_present {
         "manifest-missing"
-    } else if cfg!(target_os = "linux") {
+    } else if !gui_availability.platform_supported {
+        "linux-only-runtime"
+    } else if !gui_availability.session_available {
+        "session-missing"
+    } else if gui_availability.ready() {
         "gtk-vte-declared"
     } else {
-        "linux-only-runtime"
+        "degraded"
     }
 }
 
 fn detect_debug_mode(flag: Option<&std::ffi::OsString>) -> &'static str {
-    let Some(flag) = flag else {
-        return "disabled";
-    };
-    let lower = flag.to_string_lossy().to_ascii_lowercase();
-
-    if matches!(lower.as_str(), "1" | "true" | "yes" | "on" | "debug") {
+    if diagnostics::debug_mode_from_flag(flag) {
         "enabled"
     } else {
         "disabled"
@@ -421,7 +480,7 @@ fn collect_doctor_hints(
     stdin_tty: bool,
     stdout_tty: bool,
     terminal_size_class: &str,
-    gui_support: &str,
+    gui_availability: &neotui_gui::GuiAvailability,
     debug_mode: &str,
 ) -> Vec<&'static str> {
     let mut hints = Vec::new();
@@ -435,8 +494,19 @@ fn collect_doctor_hints(
     if terminal_size_class == "unavailable" {
         hints.push("terminal size probing is unavailable in this environment");
     }
-    if gui_support == "linux-only-runtime" {
+    if !gui_availability.platform_supported {
         hints.push("the MVP GUI path currently targets Linux with GTK/VTE");
+    }
+    if gui_availability.platform_supported && !gui_availability.session_available {
+        hints.push(
+            "start a Linux graphical session with DISPLAY or WAYLAND_DISPLAY before using `--gui`",
+        );
+    }
+    if gui_availability.platform_supported
+        && gui_availability.session_available
+        && (!gui_availability.gtk_backend_declared || !gui_availability.vte_backend_declared)
+    {
+        hints.push("the GUI crate is present but its GTK/VTE backend declaration looks incomplete");
     }
     if debug_mode == "enabled" {
         hints.push("NEOTUI_DEBUG appears enabled, so extra diagnostics may be expected");
@@ -685,12 +755,39 @@ fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
 }
 
 fn check_file(path: &Path) -> Result<String, String> {
+    debug!(target: "neotui::cli", path = %path.display(), "checking DSL file");
     let LoadedApp { format, spec, tree } = load_app(path).map_err(|error| error.to_string())?;
 
     Ok(format_check_success(path, format, &spec, &tree))
 }
 
+fn run_dispatch(
+    path: &Path,
+    gui: bool,
+    gui_cli_program: Option<&str>,
+    gui_working_directory: Option<&str>,
+    gui_forward_args: &[String],
+) -> Result<(), String> {
+    debug!(
+        target: "neotui::cli",
+        path = %path.display(),
+        gui,
+        "dispatching run command"
+    );
+    if gui {
+        run_file_gui(
+            path,
+            gui_cli_program,
+            gui_working_directory,
+            gui_forward_args,
+        )
+    } else {
+        run_file(path)
+    }
+}
+
 fn run_file(path: &Path) -> Result<(), String> {
+    debug!(target: "neotui::cli", path = %path.display(), "starting terminal run");
     let LoadedApp { mut tree, .. } = load_app(path).map_err(|error| error.to_string())?;
     let renderer = AnsiRenderer::new();
     let mut terminal = TerminalSession::new();
@@ -749,6 +846,242 @@ fn run_file(path: &Path) -> Result<(), String> {
     })
 }
 
+fn run_file_gui(
+    path: &Path,
+    gui_cli_program: Option<&str>,
+    gui_working_directory: Option<&str>,
+    gui_forward_args: &[String],
+) -> Result<(), String> {
+    load_app(path).map_err(|error| error.to_string())?;
+    debug!(
+        target: "neotui::cli",
+        path = %path.display(),
+        "starting GUI bridge flow"
+    );
+    let forwarding_contract =
+        resolve_gui_forwarding_contract(gui_cli_program, gui_working_directory, gui_forward_args)?;
+    let gui_binary_program = resolve_gui_binary_program()?;
+
+    let options = neotui_gui::prepare_gui_launch(path).map_err(|source| {
+        let retry_examples = gui_launch_retry_examples(path);
+        format!(
+            "failed to prepare GUI launch for `{}`: {source}\nhint: run `neotui doctor` to inspect Linux GUI readiness before retrying one of:\n{}\n{}",
+            path.display(),
+            retry_examples.0,
+            retry_examples.1
+        )
+    })?;
+
+    let options = apply_gui_forwarding_contract(options, &forwarding_contract);
+    let invocation = build_gui_binary_invocation(gui_binary_program, &options);
+    debug!(
+        target: "neotui::cli",
+        gui_binary = %invocation.program.display(),
+        forwarded_arg_count = invocation.args.len().saturating_sub(1),
+        "spawning dedicated GUI binary"
+    );
+
+    let status = ProcessCommand::new(&invocation.program)
+        .args(&invocation.args)
+        .status()
+        .map_err(|source| {
+            let retry_examples = gui_launch_retry_examples(path);
+            format!(
+                "failed to spawn `neotui-gui` for `{}`: {source}\nhint: ensure the `neotui-gui` binary is available next to `neotui` or on PATH, then retry one of:\n{}\n{}",
+                path.display(),
+                retry_examples.0,
+                retry_examples.1
+            )
+        })?;
+
+    if status.success() {
+        return Ok(());
+    }
+
+    Err({
+        let retry_examples = gui_launch_retry_examples(path);
+        format!(
+            "`neotui-gui` exited unsuccessfully while launching `{}` (status: {})\nhint: run `neotui doctor` and confirm GTK/VTE prerequisites plus graphical-session availability before retrying one of:\n{}\n{}",
+            path.display(),
+            display_exit_status(&status),
+            retry_examples.0,
+            retry_examples.1
+        )
+    })
+}
+
+fn resolve_gui_forwarding_contract(
+    gui_cli_program: Option<&str>,
+    gui_working_directory: Option<&str>,
+    gui_forward_args: &[String],
+) -> Result<GuiForwardingContract, String> {
+    let cli_program = match gui_cli_program {
+        Some(program) => normalized_non_empty_gui_value(
+            program,
+            "--gui-cli-program",
+            "pass the child CLI executable explicitly, for example `--gui-cli-program cargo`",
+        )?,
+        None => current_cli_program_for_gui()?,
+    };
+    let working_directory = gui_working_directory
+        .map(|value| {
+            normalized_non_empty_gui_value(
+                value,
+                "--gui-working-directory",
+                "pass a workspace-relative or absolute path, for example `--gui-working-directory crates/neotui-cli`",
+            )
+        })
+        .transpose()?;
+    let forwarded_run_args = gui_forward_args
+        .iter()
+        .map(|value| {
+            normalized_non_empty_gui_value(
+                value,
+                "--gui-forward-arg",
+                "repeat the flag per forwarded argument, for example `--gui-forward-arg --release`",
+            )
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+
+    let contract = GuiForwardingContract {
+        cli_program,
+        working_directory,
+        forwarded_run_args,
+    };
+    debug!(
+        target: "neotui::cli",
+        has_working_directory = contract.working_directory.is_some(),
+        forwarded_arg_count = contract.forwarded_run_args.len(),
+        "resolved GUI forwarding contract"
+    );
+
+    Ok(contract)
+}
+
+fn apply_gui_forwarding_contract(
+    options: neotui_gui::GuiLaunchOptions,
+    contract: &GuiForwardingContract,
+) -> neotui_gui::GuiLaunchOptions {
+    let mut options = options.with_cli_program(contract.cli_program.clone());
+
+    if let Some(working_directory) = &contract.working_directory {
+        options = options.with_working_directory(working_directory);
+    }
+
+    if !contract.forwarded_run_args.is_empty() {
+        options = options.with_extra_cli_args(contract.forwarded_run_args.iter().cloned());
+    }
+
+    options
+}
+
+fn current_cli_program_for_gui() -> Result<String, String> {
+    std::env::current_exe()
+        .map(|path| path.to_string_lossy().into_owned())
+        .map_err(|source| {
+            format!(
+                "failed to resolve the current CLI executable for GUI relaunch: {source}\nhint: pass `--gui-cli-program <program>` explicitly if the current executable path is unavailable"
+            )
+        })
+}
+
+fn resolve_gui_binary_program() -> Result<PathBuf, String> {
+    let current_exe = std::env::current_exe().map_err(|source| {
+        format!(
+            "failed to resolve the current CLI executable while looking for `neotui-gui`: {source}\nhint: ensure the GUI binary is installed and reachable on PATH"
+        )
+    })?;
+    let sibling = sibling_gui_binary_path(&current_exe);
+
+    if sibling.exists() {
+        Ok(sibling)
+    } else {
+        Ok(PathBuf::from(gui_binary_file_name_for(&current_exe)))
+    }
+}
+
+fn sibling_gui_binary_path(current_exe: &Path) -> PathBuf {
+    let binary_name = gui_binary_file_name_for(current_exe);
+    current_exe
+        .parent()
+        .map(|directory| directory.join(binary_name))
+        .unwrap_or_else(|| PathBuf::from(binary_name))
+}
+
+fn gui_binary_file_name_for(current_exe: &Path) -> String {
+    match current_exe.extension().and_then(|ext| ext.to_str()) {
+        Some(ext) if !ext.is_empty() => format!("neotui-gui.{ext}"),
+        _ => "neotui-gui".into(),
+    }
+}
+
+fn build_gui_binary_invocation(
+    gui_binary_program: PathBuf,
+    options: &neotui_gui::GuiLaunchOptions,
+) -> GuiBinaryInvocation {
+    let mut args = vec![options.app_file.display().to_string()];
+    args.push("--cli-program".into());
+    args.push(options.cli_program.clone());
+
+    if let Some(working_directory) = &options.working_directory {
+        args.push("--working-directory".into());
+        args.push(working_directory.display().to_string());
+    }
+
+    args.push("--window-title".into());
+    args.push(options.window_title.clone());
+
+    for forwarded_arg in &options.extra_cli_args {
+        args.push("--forward-arg".into());
+        args.push(forwarded_arg.clone());
+    }
+
+    GuiBinaryInvocation {
+        program: gui_binary_program,
+        args,
+    }
+}
+
+fn display_exit_status(status: &std::process::ExitStatus) -> String {
+    status
+        .code()
+        .map(|code| code.to_string())
+        .unwrap_or_else(|| "terminated by signal".into())
+}
+
+fn normalized_non_empty_gui_value(
+    value: &str,
+    flag: &str,
+    usage_hint: &str,
+) -> Result<String, String> {
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return Err(format!(
+            "{flag} received an empty value\nhint: {usage_hint}"
+        ));
+    }
+
+    Ok(trimmed.to_string())
+}
+
+fn gui_launch_retry_examples(path: &Path) -> (String, String) {
+    (
+        format!("neotui run {} --gui", path.display()),
+        format!(
+            "neotui run {} --gui --gui-cli-program cargo --gui-forward-arg --release",
+            path.display()
+        ),
+    )
+}
+
+fn cli_command_name(command: &Command) -> &'static str {
+    match command {
+        Command::Run { .. } => "run",
+        Command::Check { .. } => "check",
+        Command::Doctor => "doctor",
+    }
+}
+
 fn render_tree(
     tree: &ComponentTree,
     viewport: (u16, u16),
@@ -765,6 +1098,10 @@ fn render_tree(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    use std::os::unix::process::ExitStatusExt;
+    #[cfg(windows)]
+    use std::os::windows::process::ExitStatusExt;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     fn write_temp_file(extension: &str, contents: &str) -> std::path::PathBuf {
@@ -793,7 +1130,55 @@ mod tests {
         let cli = Cli::parse_from(["neotui", "run", "examples/hello.toml"]);
 
         match cli.command {
-            Command::Run { file } => assert_eq!(file, "examples/hello.toml"),
+            Command::Run {
+                file,
+                gui,
+                gui_cli_program,
+                gui_working_directory,
+                gui_forward_args,
+            } => {
+                assert_eq!(file, "examples/hello.toml");
+                assert!(!gui);
+                assert!(gui_cli_program.is_none());
+                assert!(gui_working_directory.is_none());
+                assert!(gui_forward_args.is_empty());
+            }
+            Command::Check { .. } => panic!("unexpected check command"),
+            Command::Doctor => panic!("unexpected doctor command"),
+        }
+    }
+
+    #[test]
+    fn clap_parses_run_gui_command() {
+        let cli = Cli::parse_from([
+            "neotui",
+            "run",
+            "examples/hello.toml",
+            "--gui",
+            "--gui-cli-program",
+            "cargo",
+            "--gui-working-directory",
+            "crates/neotui-cli",
+            "--gui-forward-arg",
+            "--release",
+            "--gui-forward-arg",
+            "--locked",
+        ]);
+
+        match cli.command {
+            Command::Run {
+                file,
+                gui,
+                gui_cli_program,
+                gui_working_directory,
+                gui_forward_args,
+            } => {
+                assert_eq!(file, "examples/hello.toml");
+                assert!(gui);
+                assert_eq!(gui_cli_program.as_deref(), Some("cargo"));
+                assert_eq!(gui_working_directory.as_deref(), Some("crates/neotui-cli"));
+                assert_eq!(gui_forward_args, vec!["--release", "--locked"]);
+            }
             Command::Check { .. } => panic!("unexpected check command"),
             Command::Doctor => panic!("unexpected doctor command"),
         }
@@ -811,6 +1196,33 @@ mod tests {
     }
 
     #[test]
+    fn clap_help_mentions_gui_launch_controls() {
+        let help = Cli::command().render_long_help().to_string();
+
+        assert!(help.contains("--gui"));
+        assert!(help.contains("--gui-cli-program"));
+        assert!(help.contains("--gui-working-directory"));
+        assert!(help.contains("--gui-forward-arg"));
+        assert!(help.contains("embedded GTK/VTE GUI"));
+    }
+
+    #[test]
+    fn clap_rejects_gui_forwarding_flags_without_gui_mode() {
+        let error = Cli::try_parse_from([
+            "neotui",
+            "run",
+            "examples/hello.toml",
+            "--gui-forward-arg",
+            "--release",
+        ])
+        .expect_err("gui forwarding flags should require --gui");
+
+        let message = error.to_string();
+        assert!(message.contains("--gui"));
+        assert!(message.contains("--gui-forward-arg"));
+    }
+
+    #[test]
     fn doctor_report_formats_without_sensitive_env_values() {
         let output = format_doctor_report(DoctorReport {
             backend: "crossterm",
@@ -824,6 +1236,11 @@ mod tests {
             raw_mode_support: "unavailable",
             alternate_screen_support: "likely",
             gui_support: "linux-only-runtime",
+            gui_platform_supported: false,
+            gui_session_available: false,
+            gui_gtk_backend_declared: true,
+            gui_vte_backend_declared: true,
+            gui_reason: "linux-gtk-vte-only",
             debug_mode: "enabled",
             term_env_present: true,
             colorterm_env_present: false,
@@ -846,6 +1263,11 @@ mod tests {
         assert!(output.contains("raw_mode_support: unavailable"));
         assert!(output.contains("alternate_screen_support: likely"));
         assert!(output.contains("gui_support: linux-only-runtime"));
+        assert!(output.contains("gui_platform_supported: no"));
+        assert!(output.contains("gui_session_available: no"));
+        assert!(output.contains("gui_gtk_backend_declared: yes"));
+        assert!(output.contains("gui_vte_backend_declared: yes"));
+        assert!(output.contains("gui_reason: linux-gtk-vte-only"));
         assert!(output.contains("debug_mode: enabled"));
         assert!(output.contains("term_env_present: yes"));
         assert!(output.contains("colorterm_env_present: no"));
@@ -856,6 +1278,21 @@ mod tests {
 
     #[test]
     fn doctor_helpers_classify_terminal_signals() {
+        let ready_gui = neotui_gui::GuiAvailability {
+            platform_supported: true,
+            session_available: true,
+            gtk_backend_declared: true,
+            vte_backend_declared: true,
+            reason: "ready-for-embed-loop",
+        };
+        let missing_session_gui = neotui_gui::GuiAvailability {
+            platform_supported: true,
+            session_available: false,
+            gtk_backend_declared: true,
+            vte_backend_declared: true,
+            reason: "missing-display-session",
+        };
+
         assert_eq!(
             detect_terminal_family(Some(&std::ffi::OsString::from("xterm-256color"))),
             "xterm-compatible"
@@ -881,12 +1318,25 @@ mod tests {
             "enabled"
         );
         assert_eq!(classify_terminal_size(Some((30, 8))), "constrained");
+        assert_eq!(detect_gui_support(&ready_gui), "gtk-vte-declared");
+        assert_eq!(detect_gui_support(&missing_session_gui), "session-missing");
     }
 
     #[test]
     fn doctor_hints_stay_actionable_and_compact() {
-        let hints =
-            collect_doctor_hints(false, true, "constrained", "linux-only-runtime", "enabled");
+        let hints = collect_doctor_hints(
+            false,
+            true,
+            "constrained",
+            &neotui_gui::GuiAvailability {
+                platform_supported: false,
+                session_available: false,
+                gtk_backend_declared: true,
+                vte_backend_declared: true,
+                reason: "linux-gtk-vte-only",
+            },
+            "enabled",
+        );
 
         assert_eq!(
             hints,
@@ -896,6 +1346,28 @@ mod tests {
                 "the MVP GUI path currently targets Linux with GTK/VTE",
                 "NEOTUI_DEBUG appears enabled, so extra diagnostics may be expected",
             ]
+        );
+    }
+
+    #[test]
+    fn doctor_hints_explain_missing_linux_display_session() {
+        let hints = collect_doctor_hints(
+            true,
+            true,
+            "comfortable",
+            &neotui_gui::GuiAvailability {
+                platform_supported: true,
+                session_available: false,
+                gtk_backend_declared: true,
+                vte_backend_declared: true,
+                reason: "missing-display-session",
+            },
+            "disabled",
+        );
+
+        assert_eq!(
+            hints,
+            vec!["start a Linux graphical session with DISPLAY or WAYLAND_DISPLAY before using `--gui`"]
         );
     }
 
@@ -1066,7 +1538,7 @@ kind = "Label"
     }
 
     #[test]
-    fn check_file_rejects_unimplemented_component_with_runtime_guidance() {
+    fn check_file_rejects_invalid_button_props_with_actionable_validation() {
         let path = write_temp_file(
             "toml",
             r#"
@@ -1077,13 +1549,12 @@ kind = "Button"
 "#,
         );
 
-        let error = check_file(&path).expect_err("button should fail instantiation");
+        let error = check_file(&path).expect_err("button without text should fail validation");
 
-        assert!(error.contains("phase: instantiate"));
+        assert!(error.contains("phase: validate"));
         assert!(error.contains("root: `Button`"));
-        assert!(error.contains("component instantiation failed"));
-        assert!(error.contains("known but not implemented yet"));
-        assert!(error.contains("Panel, Label, Divider, Spacer, VBox and HBox"));
+        assert!(error.contains("schema validation failed"));
+        assert!(error.contains("missing required property `text`"));
         let _ = fs::remove_file(path);
     }
 
@@ -1107,6 +1578,175 @@ kind = "Unknown"
 
         assert_eq!(exit, ExitCode::from(1));
         let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn run_gui_returns_failure_exit_code_when_gui_runtime_is_unavailable() {
+        let exit = run([
+            "neotui".to_string(),
+            "run".to_string(),
+            "examples/hello.toml".to_string(),
+            "--gui".to_string(),
+            "--gui-cli-program".to_string(),
+            "cargo".to_string(),
+        ]);
+
+        if cfg!(target_os = "linux")
+            && (std::env::var_os("DISPLAY").is_some()
+                || std::env::var_os("WAYLAND_DISPLAY").is_some())
+        {
+            return;
+        }
+
+        assert_eq!(exit, ExitCode::from(1));
+    }
+
+    #[test]
+    fn run_file_gui_surfaces_doctor_hint_when_prepare_fails() {
+        if cfg!(target_os = "linux")
+            && (std::env::var_os("DISPLAY").is_some()
+                || std::env::var_os("WAYLAND_DISPLAY").is_some())
+        {
+            return;
+        }
+
+        let error = run_file_gui(Path::new("examples/hello.toml"), Some("cargo"), None, &[])
+            .expect_err("headless or non-linux environment should not launch GUI");
+
+        assert!(error.contains("failed to prepare GUI launch"));
+        assert!(error.contains("run `neotui doctor`"));
+        assert!(error.contains("`--gui`"));
+    }
+
+    #[test]
+    fn current_cli_program_for_gui_returns_non_empty_path() {
+        let program = current_cli_program_for_gui().expect("current exe should resolve in tests");
+
+        assert!(!program.trim().is_empty());
+    }
+
+    #[test]
+    fn resolve_gui_forwarding_contract_defaults_to_current_executable() {
+        let contract = resolve_gui_forwarding_contract(None, None, &[])
+            .expect("default contract should resolve");
+
+        assert!(!contract.cli_program.trim().is_empty());
+        assert!(contract.working_directory.is_none());
+        assert!(contract.forwarded_run_args.is_empty());
+    }
+
+    #[test]
+    fn resolve_gui_forwarding_contract_preserves_explicit_overrides() {
+        let forwarded_args = vec!["--release".to_string(), "--locked".to_string()];
+        let contract = resolve_gui_forwarding_contract(
+            Some("cargo"),
+            Some("crates/neotui-cli"),
+            &forwarded_args,
+        )
+        .expect("explicit contract should resolve");
+
+        assert_eq!(contract.cli_program, "cargo");
+        assert_eq!(
+            contract.working_directory.as_deref(),
+            Some("crates/neotui-cli")
+        );
+        assert_eq!(contract.forwarded_run_args, forwarded_args);
+    }
+
+    #[test]
+    fn resolve_gui_forwarding_contract_rejects_empty_explicit_values() {
+        let empty_program = resolve_gui_forwarding_contract(Some("   "), None, &[])
+            .expect_err("empty gui cli program should fail");
+        let empty_workdir = resolve_gui_forwarding_contract(Some("cargo"), Some("  "), &[])
+            .expect_err("empty gui working directory should fail");
+        let empty_forward_arg =
+            resolve_gui_forwarding_contract(Some("cargo"), None, &[String::from("   ")])
+                .expect_err("empty forwarded arg should fail");
+
+        assert!(empty_program.contains("--gui-cli-program"));
+        assert!(empty_workdir.contains("--gui-working-directory"));
+        assert!(empty_forward_arg.contains("--gui-forward-arg"));
+    }
+
+    #[test]
+    fn apply_gui_forwarding_contract_shapes_launch_options_without_duplication() {
+        let options = neotui_gui::GuiLaunchOptions::new("examples/hello.toml");
+        let contract = GuiForwardingContract {
+            cli_program: "cargo".into(),
+            working_directory: Some("crates/neotui-cli".into()),
+            forwarded_run_args: vec!["--release".into(), "--locked".into()],
+        };
+        let applied = apply_gui_forwarding_contract(options, &contract);
+
+        assert_eq!(applied.cli_program, "cargo");
+        assert_eq!(
+            applied.working_directory.as_deref(),
+            Some(Path::new("crates/neotui-cli"))
+        );
+        assert_eq!(applied.extra_cli_args, vec!["--release", "--locked"]);
+    }
+
+    #[test]
+    fn gui_binary_file_name_matches_current_extension() {
+        assert_eq!(
+            gui_binary_file_name_for(Path::new("C:/tools/neotui.exe")),
+            "neotui-gui.exe"
+        );
+        assert_eq!(
+            gui_binary_file_name_for(Path::new("/usr/local/bin/neotui")),
+            "neotui-gui"
+        );
+    }
+
+    #[test]
+    fn sibling_gui_binary_path_reuses_current_executable_directory() {
+        let sibling = sibling_gui_binary_path(Path::new("C:/tools/neotui.exe"));
+
+        assert_eq!(sibling, PathBuf::from("C:/tools/neotui-gui.exe"));
+    }
+
+    #[test]
+    fn build_gui_binary_invocation_shapes_expected_process_args() {
+        let options = neotui_gui::GuiLaunchOptions::new("examples/dashboard.toml")
+            .with_cli_program("cargo")
+            .with_window_title("NeoTUI Dashboard")
+            .with_working_directory("crates/neotui-cli")
+            .with_extra_cli_args(["--release", "--locked"]);
+        let invocation = build_gui_binary_invocation(PathBuf::from("neotui-gui"), &options);
+
+        assert_eq!(invocation.program, PathBuf::from("neotui-gui"));
+        assert_eq!(
+            invocation.args,
+            vec![
+                "examples/dashboard.toml",
+                "--cli-program",
+                "cargo",
+                "--working-directory",
+                "crates/neotui-cli",
+                "--window-title",
+                "NeoTUI Dashboard",
+                "--forward-arg",
+                "--release",
+                "--forward-arg",
+                "--locked",
+            ]
+        );
+    }
+
+    #[test]
+    fn gui_launch_retry_examples_cover_runtime_and_dev_paths() {
+        let examples = gui_launch_retry_examples(Path::new("examples/dashboard.toml"));
+
+        assert_eq!(examples.0, "neotui run examples/dashboard.toml --gui");
+        assert!(examples.1.contains("--gui-cli-program cargo"));
+        assert!(examples.1.contains("--gui-forward-arg --release"));
+    }
+
+    #[test]
+    fn display_exit_status_prefers_numeric_codes() {
+        let success = std::process::ExitStatus::from_raw(0);
+
+        assert_eq!(display_exit_status(&success), "0");
     }
 
     #[test]

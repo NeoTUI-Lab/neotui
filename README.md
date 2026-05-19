@@ -194,6 +194,7 @@ Decisão final: A vence para o MVP, com arquitetura interna preparada para B.
 ### GUI Linux MVP
 
 GTK4 + VTE. O `neotui-gui` abre uma janela GTK, instancia widget VTE e executa `neotui run <file>` em PTY.
+O crate agora tambem expoe um binario `neotui-gui`, o que permite evoluir a integracao GUI como entrypoint proprio sem depender apenas do launch in-process pelo CLI principal.
 
 ### Python e DSL
 
@@ -207,6 +208,50 @@ GTK4 + VTE. O `neotui-gui` abre uma janela GTK, instancia widget VTE e executa `
 - Clap para `run`, `check`, `build`, `doctor`, `theme list`
 - `.deb` com cargo-deb
 - AppImage como etapa seguinte
+
+### Contrato atual de launch GUI
+
+O caminho `neotui run <file> --gui` agora tem um contrato explicito entre CLI e GUI embutida:
+
+- o `neotui-cli` principal pode usar o binario dedicado `neotui-gui` como ponte de launch, em vez de concentrar toda a inicializacao GUI dentro do mesmo processo;
+- por padrao, o processo filho usa o executavel atual do CLI para relancar `run <file>` dentro do VTE;
+- `--gui-cli-program <program>` permite substituir esse executavel explicitamente;
+- `--gui-working-directory <path>` fixa o diretorio de trabalho do processo filho;
+- `--gui-forward-arg <arg>` pode ser repetido para anexar argumentos extras ao `run` executado dentro da GUI;
+- flags `--gui-*` so sao validas quando `--gui` tambem estiver presente.
+
+Exemplos:
+
+```bash
+# Runtime empacotado ou CLI ja resolvida no PATH
+neotui run examples/dashboard.toml --gui
+
+# Desenvolvimento local via cargo
+neotui run examples/dashboard.toml --gui --gui-cli-program cargo --gui-forward-arg --release
+
+# Relanch com diretorio de trabalho controlado
+neotui run examples/dashboard.toml --gui --gui-working-directory crates/neotui-cli --gui-forward-arg --locked
+```
+
+Quando a preparacao GUI falha, o fluxo deve apontar o usuario para `neotui doctor` em vez de deixar a origem do problema ambigua.
+
+Uso comum:
+
+- se `neotui` ja estiver instalado ou corretamente resolvido no ambiente, `neotui run <file> --gui` deve ser o caminho principal;
+- durante desenvolvimento local, `--gui-cli-program cargo` e `--gui-forward-arg --release` ajudam a explicitar como o processo filho deve ser reconstruido/relancado;
+- se o launch GUI depender de um diretório especifico do workspace, `--gui-working-directory <path>` evita ambiguidade operacional;
+- quando houver falha de sessao grafica ou pre-requisito Linux, rode `neotui doctor` antes de insistir no `--gui`.
+
+### Debug tracing
+
+O MVP agora pode habilitar tracing por subsistema via `NEOTUI_DEBUG=1`:
+
+```bash
+NEOTUI_DEBUG=1 neotui check examples/hello.toml
+NEOTUI_DEBUG=1 neotui run examples/dashboard.toml --gui
+```
+
+O tracing e focado em subsistemas tecnicos como `cli`, `gui`, `dsl`, `registry`, `runtime` e `terminal`, sem despejar payload completo de componentes por padrao.
 
 ## 6. Arquitetura de referência
 
@@ -320,7 +365,7 @@ teardown_terminal()
 | Tema      | `minimal`, `dark`, `cyberpunk`                               |
 | Eventos   | key, mouse click, scroll, resize, tick                       |
 | CLI       | `run`, `check`, `doctor`                                     |
-| GUI       | `neotui run dashboard.yaml --gui`                            |
+| GUI       | `neotui run dashboard.yaml --gui` com contrato explicito de forwarding |
 | DSL       | JSON/TOML canônico; YAML via camada Python ou parser isolado |
 | Python    | API fluente mínima: `VBox(Label(...), Button(...))`          |
 | Testes    | snapshot buffer, DSL golden, layout tests                    |
