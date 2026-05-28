@@ -4,34 +4,34 @@
 
 This header supersedes the legacy task-only block below. From this point forward, execution status should be recorded at the US level.
 
-### Last Closed Epic
+#### Last Closed Epic
 
-**EPIC-011** - GUI embutida Linux
+**EPIC-022** - Visual System TUI 1.0
 - Status: Closed
-- Date: 2026-05-18
-- Summary: The MVP GUI path now has a dedicated `neotui-gui` binary, GTK/VTE launch bootstrap, CLI-to-GUI forwarding contract, GUI readiness diagnostics, updated docs and a primary `neotui run <file> --gui` bridge through the standalone GUI entrypoint.
+- Date: 2026-05-28
+- Summary: Added the first robust rich-TUI visual grammar: semantic surface/border/accent/data tokens, `Panel` visual intent through `variant`, `density` and `chrome`, `docs/visual-system.md`, and `examples/visual-system-showcase.toml` as the calmer modern showcase target.
 
 ### Last Executed US
 
-**US-012.1** - tracing por subsistema
+**US-022.6** - Visual System reference showcase
 - Status: Completed
-- Priority: P0
-- Depends on: EPIC-011
-- Date: 2026-05-18
-- Summary: Added opt-in tracing gated by `NEOTUI_DEBUG`, with coverage across `cli`, `gui`, `dsl`, `registry`, `runtime` and `terminal`, while preserving the security rule of not logging full UI payloads by default.
+- Priority: P1
+- Depends on: US-022.5
+- Date: 2026-05-28
+- Summary: Completed EPIC-022 by adding the Visual System 1.0 reference showcase, wiring it into docs and scripts, covering parse/registry/render smoke tests, and recording the richer panel variant/density/chrome contract.
 
 ### Next US
 
-**US-012.2** - erros amigaveis e categorizados
-- Status: Pending
-- Priority: P0
-- Depends on: US-012.1
-- Date: 2026-05-18
-- Summary: Consolidate user-facing error categories and actionable diagnostics across CLI, DSL loading, runtime bootstrap and GUI launch flows so failures stay readable, consistent and safe.
+**US-023.1** - definir proximo epico de produto
+- Status: Pending Product Decision
+- Priority: TBD
+- Depends on: US-022.6
+- Date: 2026-05-28
+- Summary: Select next roadmap epic, e.g. animation/tick layer, more real-world showcases, CLI expansion or Python integration.
 
 ### Objective
 
-Establish US-level execution tracking from this point forward and continue EPIC-012 with user-facing operational diagnostics.
+EPIC-022 is complete. NeoTUI now has a documented Visual System 1.0 layer for modern rich TUI composition, with semantic theme tokens, panel visual intent props and a reference showcase.
 
 ### Scope
 

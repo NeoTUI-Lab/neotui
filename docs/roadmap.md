@@ -258,6 +258,247 @@ Backlog executavel em formato **epicos -> user stories -> tasks**, alinhado ao d
 
 ---
 
+## EPIC-016 - Frontends TUI ricos
+
+**Objetivo:** transformar a base MVP em uma experiencia pratica para construir frontends TUI ricos, com exemplos completos, padroes de layout, interacoes compostas e templates reutilizaveis.
+
+### US-016.1 (P1) - dashboard rico oficial
+
+- TASK-016.1.1: definir o objetivo do dashboard oficial e seus estados visuais principais.
+- TASK-016.1.2: criar `examples/rich-dashboard.toml` usando `Panel`, `VBox`, `HBox`, `Label`, `TextBlock`, `Button`, `List`, `Graph`, `Spacer` e `Divider` quando suportado.
+- TASK-016.1.3: garantir que o dashboard valide com `neotui check`.
+- TASK-016.1.4: adicionar teste de fixture/registry/render para o dashboard rico.
+- TASK-016.1.5: documentar como rodar o dashboard no catalogo de exemplos.
+
+### US-016.2 (P1) - padroes de layout
+
+- TASK-016.2.1: documentar padroes de composicao para header/body/sidebar/footer.
+- TASK-016.2.2: documentar uso de constraints `width`, `height`, percentuais e `grow`.
+- TASK-016.2.3: criar exemplos pequenos para layout denso, layout com sidebar e layout responsivo minimo.
+- TASK-016.2.4: adicionar testes que protejam os layouts principais contra regressao.
+- TASK-016.2.5: incluir orientacoes para terminais pequenos e degradacao visual.
+
+### US-016.3 (P1) - interacoes compostas
+
+- TASK-016.3.1: definir um fluxo composto com foco em lista, botao e atalhos globais.
+- TASK-016.3.2: criar exemplo oficial que demonstre foco, navegacao por teclado, scroll e ativacao de botao.
+- TASK-016.3.3: adicionar testes de evento/foco para o fluxo composto.
+- TASK-016.3.4: documentar comportamento esperado e teclas usadas.
+- TASK-016.3.5: garantir que o fluxo preserve restauracao de terminal e logs seguros.
+
+### US-016.4 (P1) - templates de aplicacao
+
+- TASK-016.4.1: definir templates oficiais iniciais: dashboard operacional, lista de tarefas e monitor de metricas.
+- TASK-016.4.2: criar uma pasta `templates/` ou documentar templates em `docs/templates.md`, escolhendo o menor caminho coerente.
+- TASK-016.4.3: adicionar instrucoes de copia/adaptacao para novos apps.
+- TASK-016.4.4: validar templates com `neotui check` quando forem DSL executavel.
+- TASK-016.4.5: linkar templates no README, quickstart e catalogo de exemplos.
+
+### US-016.5 (P2) - guia de design TUI
+
+- TASK-016.5.1: documentar principios visuais para TUIs densas e legiveis.
+- TASK-016.5.2: definir recomendacoes de contraste, largura, espacamento e hierarquia.
+- TASK-016.5.3: documentar quando usar `Panel`, `Divider`, `List`, `Graph`, `Button` e `TextBlock`.
+- TASK-016.5.4: incluir checklist de revisao visual para demos.
+- TASK-016.5.5: apontar limitacoes atuais e proximos widgets candidatos.
+
+---
+
+## EPIC-017 - Elementos ricos de frontend TUI
+
+**Objetivo:** evoluir a biblioteca de componentes para permitir telas densas e instrumentais, inspiradas em dashboards HUD, paineis de controle, monitores operacionais e interfaces de dados com alto valor visual, sem abandonar a base terminal-first.
+
+### US-017.1 (P1) - Table widget MVP
+
+- TASK-017.1.1: definir a API do `Table` com colunas, linhas, largura fixa/flexivel e alinhamento por coluna.
+- TASK-017.1.2: implementar renderizacao com header, linhas, clipping horizontal seguro e estilo de selecao.
+- TASK-017.1.3: adicionar navegacao por teclado e scroll vertical integrado ao `StateStore`.
+- TASK-017.1.4: expor `Table` no registry e validar props no DSL TOML/JSON.
+- TASK-017.1.5: criar exemplo oficial com tabela densa e testes de snapshot/eventos.
+
+### US-017.2 (P1) - Metric and gauge widgets
+
+- TASK-017.2.1: definir widgets compactos para metricas numericas, variacao, unidades e status.
+- TASK-017.2.2: implementar gauge/barra horizontal e vertical com thresholds e tokens de tema.
+- TASK-017.2.3: adicionar DSL validation e snapshots para estados normal, warning e critical.
+- TASK-017.2.4: criar exemplo de painel operacional com gauges e metricas.
+- TASK-017.2.5: documentar limites de densidade e degradacao em terminais pequenos.
+
+### US-017.3 (P1) - Sparkline and micro chart widgets
+
+- TASK-017.3.1: definir `Sparkline` para series pequenas usando caracteres de bloco/linha.
+- TASK-017.3.2: suportar escala automatica, limites opcionais e clipping por area.
+- TASK-017.3.3: adicionar estilos por tendencia e snapshot tests.
+- TASK-017.3.4: incluir sparklines no dashboard rico e em exemplo isolado.
+- TASK-017.3.5: documentar quando usar `Graph` versus `Sparkline`.
+
+### US-017.4 (P2) - HUD layout primitives
+
+- TASK-017.4.1: definir componentes auxiliares para frames densos, status strips, key-value rows e section labels.
+- TASK-017.4.2: implementar primitivas sem criar um renderer novo nem acoplar a GUI.
+- TASK-017.4.3: adicionar DSL validation, exemplos e snapshots.
+- TASK-017.4.4: revisar temas `minimal`, `dark` e `cyberpunk` para suportar hierarquia HUD.
+- TASK-017.4.5: documentar padroes para telas estilo painel tecnico.
+
+### US-017.5 (P2) - Rich cockpit showcase
+
+- TASK-017.5.1: definir uma tela showcase inspirada em paineis densos, com multiplas regioes de dados.
+- TASK-017.5.2: combinar `Table`, gauges, sparklines, graphs, lists e panels em um exemplo oficial.
+- TASK-017.5.3: validar terminal e GUI embutida com comandos documentados.
+- TASK-017.5.4: adicionar snapshot ou smoke test suficiente para proteger composicao.
+- TASK-017.5.5: atualizar docs de showcase e design guide com a nova tela.
+
+---
+
+## EPIC-018 - Skins visuais ricas
+
+**Objetivo:** criar linguagens visuais completas para NeoTUI, com temas, tokens, exemplos e snapshots que transformem os componentes existentes e futuros em telas com identidade forte, sem acoplar renderer novo nem dependencias GUI ao core.
+
+### US-018.1 (P1) - Redline skin foundation
+
+- TASK-018.1.1: definir direcao visual da skin `redline` com fundo escuro, linhas vermelhas/coral, texto frio, ciano secundario e estados de falha de alto contraste.
+- TASK-018.1.2: adicionar tokens de tema para superficies, bordas, titulos, texto primario/muted, accent, danger, warning, selection, graph e futuros elementos de tabela.
+- TASK-018.1.3: aplicar a skin aos componentes atuais sem criar dependencias de renderer novo nem acoplar GUI.
+- TASK-018.1.4: criar `examples/redline-dashboard.toml` usando widgets existentes para validar a identidade visual antes dos novos componentes ricos.
+- TASK-018.1.5: adicionar validacao, snapshots e documentacao curta de uso da skin.
+
+### US-018.2 (P2) - Redline interaction states
+
+- TASK-018.2.1: definir estados visuais para foco, hover/click terminal, selecao, erro, warning e comandos ativos.
+- TASK-018.2.2: aplicar os estados a `Button`, `List`, `Table` quando disponivel e paineis de alerta.
+- TASK-018.2.3: adicionar snapshots para estados interativos e degradacao sem cor.
+- TASK-018.2.4: documentar guidelines de uso para telas densas e alertas.
+- TASK-018.2.5: validar legibilidade em terminal e GUI embutida.
+
+### US-018.3 (P2) - Redline cockpit showcase
+
+- TASK-018.3.1: evoluir o exemplo redline para uma tela cockpit usando os widgets ricos disponiveis.
+- TASK-018.3.2: combinar tema, layout denso, graficos, listas e dados tabulares em um showcase unico.
+- TASK-018.3.3: validar `neotui check`, terminal runtime e `--gui`.
+- TASK-018.3.4: adicionar snapshot ou smoke test suficiente para proteger composicao.
+- TASK-018.3.5: atualizar docs de showcase com comandos e capturas esperadas.
+
+---
+
+## EPIC-019 - Instrumentacao operacional rica
+
+**Objetivo:** consolidar widgets instrumentais que permitem dashboards densos com metricas, capacidade, tendencias e dados tabulares sem depender de renderer grafico nativo.
+
+### US-019.1 (P1) - Metric, Gauge e Sparkline
+
+- TASK-019.1.1: expor `Metric`, `Gauge` e `Sparkline` no registry e na DSL.
+- TASK-019.1.2: validar props numericas, status e series com erros acionaveis.
+- TASK-019.1.3: adicionar snapshots e exemplos de degradacao em terminais pequenos.
+- TASK-019.1.4: documentar quando usar `Graph`, `Gauge`, `Metric` e `Sparkline`.
+
+### US-019.2 (P1) - Knob e Table dense data
+
+- TASK-019.2.1: consolidar `Table` como widget de comparacao tabular densa.
+- TASK-019.2.2: adicionar `Knob` para indicadores compactos de valor limitado.
+- TASK-019.2.3: cobrir validacao, registry e snapshots dos dois widgets.
+- TASK-019.2.4: manter APIs publicas independentes de bibliotecas de terminal externas.
+
+### US-019.3 (P1) - Catalogo oficial de exemplos ricos
+
+- TASK-019.3.1: incluir `examples/table-demo.toml` no catalogo oficial.
+- TASK-019.3.2: incluir `examples/cockpit-showcase.toml` como demo instrumental.
+- TASK-019.3.3: atualizar quickstart, design guide e showcase com os novos comandos.
+
+---
+
+## EPIC-020 - HUD cockpit e primitivos visuais
+
+**Objetivo:** evoluir a linguagem de tela para interfaces HUD densas, com framing tecnico, linhas de status, metadados key/value e showcases inspirados em paineis cinematograficos, sem sair do terminal-first.
+
+### US-020.1 (P1) - HUD primitives
+
+- TASK-020.1.1: implementar `StatusStrip` para mensagens de estado em linha inteira.
+- TASK-020.1.2: implementar `KeyValueRow` para telemetria alinhada e compacta.
+- TASK-020.1.3: ampliar `Panel` com opcoes visuais como bordas tecnicas, grid, controles e rodapes.
+- TASK-020.1.4: manter degradacao segura em terminais estreitos.
+
+### US-020.2 (P1) - Cockpit showcase
+
+- TASK-020.2.1: criar `examples/cockpit-showcase.toml` combinando HUD primitives e widgets instrumentais.
+- TASK-020.2.2: proteger o showcase com validacao e teste de composicao/render.
+- TASK-020.2.3: registrar o showcase no fluxo de demo.
+
+### US-020.3 (P1) - Tron HUD reference
+
+- TASK-020.3.1: criar `examples/tron-hud.toml` como referencia visual redline/HUD.
+- TASK-020.3.2: combinar `BigMetric`, gauges, sparklines, tabela, knob e botoes.
+- TASK-020.3.3: documentar o exemplo como o showcase visual principal atual.
+
+---
+
+## EPIC-021 - Hierarquia de Escala Real
+
+**Objetivo:** resolver legibilidade de valores dominantes em telas reais com `BigMetric`, usando fontes nativas por tamanho em vez de escala mecanica de pixels.
+
+### US-021.1 (P0) - BigMetric MVP
+
+- TASK-021.1.1: implementar `BigMetric` para numeros e identificadores curtos.
+- TASK-021.1.2: expor props de valor, unidade, altura e escala inicial na DSL.
+- TASK-021.1.3: adicionar snapshots e testes de largura/calculo.
+
+### US-021.2 (P0) - Showcase clinica
+
+- TASK-021.2.1: criar `examples/clinic-queue.toml` como caso real de chamada de fila.
+- TASK-021.2.2: combinar ticket dominante, fila lateral, gauges de consultorios e metricas do dia.
+- TASK-021.2.3: validar terminal e GUI embutida como fluxo de demo.
+
+### US-021.3 (P0) - Native Font Architecture
+
+- TASK-021.3.1: substituir escala mecanica por fontes nativas `compact`, `large` e `hero`.
+- TASK-021.3.2: mapear `scale` legado para `font` sem quebrar fixtures existentes.
+- TASK-021.3.3: cobrir letras A-Z, largura, renderizacao e compatibilidade por testes.
+- TASK-021.3.4: registrar EPIC-021 como fechado no controle de execucao.
+
+---
+
+## EPIC-022 - Visual System TUI 1.0
+
+**Objetivo:** transformar os widgets ricos e a skin redline em uma gramatica visual robusta, moderna e reutilizavel para TUIs densas, com menos ruido de chrome e hierarquia mais clara.
+
+### US-022.1 (P1) - Visual audit e design rules
+
+- TASK-022.1.1: analisar a renderizacao AS IS e registrar gaps de hierarquia, cor, chrome e densidade.
+- TASK-022.1.2: documentar a regra central: neon como informacao, nao decoracao.
+- TASK-022.1.3: criar `docs/visual-system.md` com hierarquia, composicao e checklist.
+
+### US-022.2 (P1) - Semantic token system V2
+
+- TASK-022.2.1: adicionar tokens semanticos para surface, border, accent e data.
+- TASK-022.2.2: mapear os tokens no tema `redline` sem quebrar fallbacks existentes.
+- TASK-022.2.3: adicionar testes garantindo resolucao dos novos tokens.
+
+### US-022.3 (P1) - Panel visual variants
+
+- TASK-022.3.1: adicionar `variant`, `density` e `chrome` como linguagem visual de `Panel`.
+- TASK-022.3.2: implementar variantes `plain`, `framed`, `data`, `alert` e `hero`.
+- TASK-022.3.3: validar props no DSL e instanciar variantes pelo registry.
+
+### US-022.4 (P1) - Density e responsive rules
+
+- TASK-022.4.1: aplicar densidade compacta/normal/spacious no calculo de area interna.
+- TASK-022.4.2: documentar uso de densidade para shells, paineis de dados e hero regions.
+- TASK-022.4.3: cobrir comportamento com testes de layout/render.
+
+### US-022.5 (P1) - Modern data widget polish
+
+- TASK-022.5.1: alinhar widgets ricos aos tokens semanticos de dados e status.
+- TASK-022.5.2: reduzir dependencia de cores locais quando o tema oferece tokens.
+- TASK-022.5.3: documentar o uso de `Metric`, `Gauge`, `Sparkline`, `BigMetric`, `Knob`, `StatusStrip` e `KeyValueRow` no guia de design.
+
+### US-022.6 (P1) - Visual System reference showcase
+
+- TASK-022.6.1: criar `examples/visual-system-showcase.toml` como composicao final.
+- TASK-022.6.2: atualizar quickstart, catalogo de exemplos, showcase e script de showcase.
+- TASK-022.6.3: adicionar testes de parse, registry e render smoke para o novo exemplo.
+- TASK-022.6.4: registrar EPIC-022 como fechado no controle de execucao.
+
+---
+
 ## Ordem sugerida de execucao
 
 1. EPIC-000
@@ -276,6 +517,13 @@ Backlog executavel em formato **epicos -> user stories -> tasks**, alinhado ao d
 14. EPIC-013
 15. EPIC-014
 16. EPIC-015
+17. EPIC-016
+18. EPIC-017
+19. EPIC-018
+20. EPIC-019
+21. EPIC-020
+22. EPIC-021
+23. EPIC-022
 
 ---
 
