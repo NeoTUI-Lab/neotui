@@ -1,0 +1,74 @@
+schema_version = "0.1"
+theme = "minimal"
+
+[root]
+kind = "Panel"
+id = "layout-sidebar"
+
+[root.props]
+title = "Sidebar Layout"
+
+[[root.children]]
+kind = "HBox"
+id = "sidebar-body"
+
+[root.children.props]
+gap = 2
+align = "stretch"
+
+[[root.children.children]]
+kind = "Panel"
+id = "sidebar-nav"
+
+[root.children.children.props]
+title = "Sections"
+width = 22
+
+[[root.children.children.children]]
+kind = "List"
+id = "sidebar-list"
+
+[root.children.children.children.props]
+items = ["Overview", "Deploys", "Metrics", "Alerts"]
+
+[[root.children.children]]
+kind = "Panel"
+id = "sidebar-main"
+
+[root.children.children.props]
+title = "Detail"
+grow = 1
+
+[[root.children.children.children]]
+kind = "VBox"
+id = "sidebar-detail-flow"
+
+[root.children.children.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children.children.children]]
+kind = "Label"
+id = "sidebar-heading"
+
+[root.children.children.children.children.props]
+text = "Selected: Overview"
+align = "center"
+height = 1
+
+[[root.children.children.children.children]]
+kind = "Divider"
+id = "sidebar-detail-rule"
+
+[root.children.children.children.children.props]
+orientation = "horizontal"
+symbol = "="
+height = 1
+
+[[root.children.children.children.children]]
+kind = "TextBlock"
+id = "sidebar-copy"
+
+[root.children.children.children.children.props]
+text = "Fixed navigation on the left.\nGrowing content on the right."
+

@@ -1,0 +1,98 @@
+schema_version = "0.1"
+theme = "cyberpunk"
+
+[root]
+kind = "Panel"
+id = "template-metrics-monitor"
+
+[root.props]
+title = "Metrics Monitor"
+
+[[root.children]]
+kind = "VBox"
+id = "monitor-body"
+
+[root.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children]]
+kind = "HBox"
+id = "monitor-kpis"
+
+[root.children.children.props]
+gap = 2
+height = 3
+align = "stretch"
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "latency-kpi"
+
+[root.children.children.children.props]
+title = "Latency"
+width_pct = 33
+
+[[root.children.children.children.children]]
+kind = "Label"
+id = "latency-value"
+
+[root.children.children.children.children.props]
+text = "p95 28 ms"
+align = "center"
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "error-kpi"
+
+[root.children.children.children.props]
+title = "Errors"
+width_pct = 33
+
+[[root.children.children.children.children]]
+kind = "Label"
+id = "error-value"
+
+[root.children.children.children.children.props]
+text = "0.04%"
+align = "center"
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "load-kpi"
+
+[root.children.children.children.props]
+title = "Load"
+width_pct = 34
+
+[[root.children.children.children.children]]
+kind = "Label"
+id = "load-value"
+
+[root.children.children.children.children.props]
+text = "72%"
+align = "center"
+
+[[root.children.children]]
+kind = "Panel"
+id = "monitor-graph-panel"
+
+[root.children.children.props]
+title = "Trend"
+grow = 1
+
+[[root.children.children.children]]
+kind = "Graph"
+id = "monitor-graph"
+
+[root.children.children.children.props]
+title = "Throughput"
+values = [30, 34, 29, 42, 45, 41, 50, 56, 54]
+
+[[root.children.children]]
+kind = "TextBlock"
+id = "monitor-note"
+
+[root.children.children.props]
+text = "Replace KPI labels and graph values with live data once runtime state binding is available. For now this template is a static monitor shell."
+height = 2

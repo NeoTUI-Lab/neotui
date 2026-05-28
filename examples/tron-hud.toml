@@ -1,0 +1,297 @@
+schema_version = "0.1"
+theme = "redline"
+
+[root]
+kind = "Panel"
+id = "tron-hud"
+
+[root.props]
+title = "GRID COMMAND // SECTOR 7G"
+border_style = "hex"
+controls = true
+grid = true
+title_style = "chevron"
+footer_left = "v2.1.4"
+footer_right = "MEM:0xA3F2"
+
+[[root.children]]
+kind = "VBox"
+id = "hud-main"
+
+[root.children.props]
+gap = 1
+align = "stretch"
+
+# ─── Banner de status crítico com chevron fill ───────────────────────────────
+[[root.children.children]]
+kind = "StatusStrip"
+id = "hud-status"
+
+[root.children.children.props]
+text = "REBOOT FAILED / MANUAL RECOVERY REQUIRED"
+status = "critical"
+fill = "chevron"
+height = 1
+
+# ─── Linha superior: TEMP (BigMetric) + SHIELDS (Gradient Gauge) + TRACE ─────
+[[root.children.children]]
+kind = "HBox"
+id = "hud-top-row"
+
+[root.children.children.props]
+gap = 1
+align = "stretch"
+height = 4
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "temp-panel"
+
+[root.children.children.children.props]
+title = "TEMP"
+width = 22
+border_style = "hex"
+title_style = "chevron"
+
+[[root.children.children.children.children]]
+kind = "BigMetric"
+id = "core-temp"
+
+[root.children.children.children.children.props]
+value = "98"
+unit = "°C"
+height = 3
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "shields-panel"
+
+[root.children.children.children.props]
+title = "SHIELDS"
+width = 28
+border_style = "rounded"
+title_style = "chevron"
+
+[[root.children.children.children.children]]
+kind = "Gauge"
+id = "shield-gauge"
+
+[root.children.children.children.children.props]
+value = 85.0
+min = 0.0
+max = 100.0
+fill_style = "gradient"
+height = 1
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "trace-panel"
+
+[root.children.children.children.props]
+title = "SIGNAL TRACE"
+width = 26
+border_style = "angular"
+title_style = "arrow"
+
+[[root.children.children.children.children]]
+kind = "Sparkline"
+id = "trace-spark"
+
+[root.children.children.children.children.props]
+values = [2.0, 5.0, 3.0, 8.0, 6.0, 9.0, 7.0, 10.0, 8.0]
+height = 2
+
+# ─── Linha do meio: POWER + VECTOR + NODES ────────────────────────────────────
+[[root.children.children]]
+kind = "HBox"
+id = "hud-mid-row"
+
+[root.children.children.props]
+gap = 1
+align = "stretch"
+height = 5
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "power-panel"
+
+[root.children.children.children.props]
+title = "POWER MATRIX"
+width = 26
+border_style = "double"
+title_style = "bracket"
+footer_left = "L01"
+footer_right = "23V"
+
+[[root.children.children.children.children]]
+kind = "VBox"
+id = "power-rows"
+
+[root.children.children.children.children.props]
+gap = 0
+
+[[root.children.children.children.children.children]]
+kind = "KeyValueRow"
+id = "voltage-row"
+
+[root.children.children.children.children.children.props]
+key = "Voltage Input"
+value = "23V"
+connector = "."
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "KeyValueRow"
+id = "load-row"
+
+[root.children.children.children.children.children.props]
+key = "Fabrication Load"
+value = "44%"
+connector = "."
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "Gauge"
+id = "power-charge"
+
+[root.children.children.children.children.children.props]
+value = 44.0
+fill_style = "block"
+height = 1
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "vector-panel"
+
+[root.children.children.children.props]
+title = "VECTOR SIGNAL"
+width = 22
+border_style = "hex"
+title_style = "chevron"
+footer_left = "L02"
+
+[[root.children.children.children.children]]
+kind = "VBox"
+id = "vector-content"
+
+[root.children.children.children.children.props]
+gap = 1
+
+[[root.children.children.children.children.children]]
+kind = "Sparkline"
+id = "vector-spark"
+
+[root.children.children.children.children.children.props]
+values = [10.0, 15.0, 8.0, 12.0, 20.0, 14.0, 25.0]
+height = 2
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "nodes-panel"
+
+[root.children.children.children.props]
+title = "NODES"
+width = 26
+border_style = "hex"
+title_style = "chevron"
+footer_right = "L07"
+
+[[root.children.children.children.children]]
+kind = "HBox"
+id = "nodes-content"
+
+[root.children.children.children.children.props]
+gap = 1
+
+[[root.children.children.children.children.children]]
+kind = "Table"
+id = "nodes-table"
+
+[root.children.children.children.children.children.props]
+columns = [
+  { key = "id", title = "ID", width = 5 },
+  { key = "load", title = "L%", width = 4, align = "right" },
+  { key = "v", title = "V", width = 4, align = "right" }
+]
+rows = [
+  { id = "n1", load = "4%", v = "05V" },
+  { id = "n2", load = "8%", v = "04V" },
+  { id = "n3", load = "12%", v = "23V" }
+]
+width = 15
+
+[[root.children.children.children.children.children]]
+kind = "Knob"
+id = "warp-dial"
+
+[root.children.children.children.children.children.props]
+title = "WARP"
+value = 75.0
+min = 0.0
+max = 100.0
+width = 8
+
+# ─── Linha de ações ───────────────────────────────────────────────────────────
+[[root.children.children]]
+kind = "HBox"
+id = "hud-actions"
+
+[root.children.children.props]
+gap = 1
+align = "stretch"
+height = 2
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "diag-panel"
+
+[root.children.children.children.props]
+title = "DIAGNOSTICS"
+width = 40
+border_style = "hex"
+title_style = "chevron"
+
+[[root.children.children.children.children]]
+kind = "KeyValueRow"
+id = "gateway-kv"
+
+[root.children.children.children.children.props]
+key = "Gateway"
+value = "ACTIVE"
+connector = "."
+height = 1
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "actions-panel"
+
+[root.children.children.children.props]
+title = "EMERGENCY ACTIONS"
+border_style = "hex"
+title_style = "bracket"
+
+[[root.children.children.children.children]]
+kind = "HBox"
+id = "btn-row"
+
+[root.children.children.children.children.props]
+gap = 1
+justify = "center"
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "Button"
+id = "reboot-btn"
+
+[root.children.children.children.children.children.props]
+text = "Reboot Lasers"
+width = 16
+
+[[root.children.children.children.children.children]]
+kind = "Button"
+id = "de-res-btn"
+
+[root.children.children.children.children.children.props]
+text = "De-Res Grid"
+width = 14
+variant = "danger"

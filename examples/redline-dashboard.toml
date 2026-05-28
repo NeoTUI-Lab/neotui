@@ -1,0 +1,265 @@
+schema_version = "0.1"
+theme = "redline"
+
+[root]
+kind = "Panel"
+id = "redline-dashboard"
+
+[root.props]
+title = "REDLINE CONTROL SURFACE"
+border_style = "hex"
+controls = true
+grid = true
+title_style = "chevron"
+footer_left = "v1.7.3"
+footer_right = "SECTOR-R"
+
+[[root.children]]
+kind = "VBox"
+id = "redline-content"
+
+[root.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children]]
+kind = "StatusStrip"
+id = "redline-alert"
+
+[root.children.children.props]
+text = "REBOOT FAILED / MANUAL RECOVERY REQUIRED"
+status = "critical"
+fill = "chevron"
+height = 1
+
+[[root.children.children]]
+kind = "HBox"
+id = "redline-status-row"
+
+[root.children.children.props]
+gap = 2
+align = "stretch"
+height = 3
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "redline-core"
+
+[root.children.children.children.props]
+title = "CORE"
+width = 20
+border_style = "double"
+grid = true
+title_style = "chevron"
+
+[[root.children.children.children.children]]
+kind = "BigMetric"
+id = "redline-core-value"
+
+[root.children.children.children.children.props]
+value = "98"
+unit = "°C"
+height = 3
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "redline-shields"
+
+[root.children.children.children.props]
+title = "SHIELDS"
+width = 20
+border_style = "rounded"
+grid = true
+title_style = "bracket"
+footer_right = "85%"
+
+[[root.children.children.children.children]]
+kind = "Gauge"
+id = "redline-shield-value"
+
+[root.children.children.children.children.props]
+value = 85.0
+min = 0.0
+max = 100.0
+fill_style = "gradient"
+height = 1
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "redline-trace"
+
+[root.children.children.children.props]
+title = "TRACE"
+width = 26
+border_style = "angular"
+grid = true
+title_style = "arrow"
+
+[[root.children.children.children.children]]
+kind = "Sparkline"
+id = "redline-trace-spark"
+
+[root.children.children.children.children.props]
+values = [1.0, 3.0, 2.0, 4.0, 3.0, 5.0, 4.0, 6.0]
+height = 1
+
+[[root.children.children]]
+kind = "HBox"
+id = "redline-middle-row"
+
+[root.children.children.props]
+gap = 2
+align = "stretch"
+height = 5
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "redline-queue"
+
+[root.children.children.children.props]
+title = "RECOVERY"
+width = 22
+border_style = "hex"
+grid = true
+
+[[root.children.children.children.children]]
+kind = "List"
+id = "redline-queue-list"
+
+[root.children.children.children.children.props]
+items = ["clear boot sector", "reroute memory bus", "seal user port", "restart identity map", "resume grid lock"]
+height = 3
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "redline-feed"
+
+[root.children.children.children.props]
+title = "FEED"
+width = 22
+border_style = "hex"
+grid = true
+
+[[root.children.children.children.children]]
+kind = "Graph"
+id = "redline-waveform"
+
+[root.children.children.children.children.props]
+values = [2, 4, 6, 5, 8]
+height = 3
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "redline-nodes"
+
+[root.children.children.children.props]
+title = "NODES"
+width = 22
+border_style = "hex"
+grid = true
+
+[[root.children.children.children.children]]
+kind = "HBox"
+id = "nodes-knobs-hbox"
+
+[root.children.children.children.children.props]
+gap = 1
+
+[[root.children.children.children.children.children]]
+kind = "Table"
+id = "redline-nodes-table"
+
+[root.children.children.children.children.children.props]
+columns = [
+  { key = "id", title = "ID", width = 5 },
+  { key = "load", title = "L", width = 3, align = "right" }
+]
+rows = [
+  { id = "n1", load = "4%" },
+  { id = "n2", load = "8%" }
+]
+width = 10
+
+[[root.children.children.children.children.children]]
+kind = "Knob"
+id = "redline-nodes-knob"
+
+[root.children.children.children.children.children.props]
+title = "WARP"
+value = 75.0
+min = 0.0
+max = 100.0
+width = 10
+
+[[root.children.children]]
+kind = "HBox"
+id = "redline-bottom-row"
+
+[root.children.children.props]
+gap = 2
+align = "stretch"
+height = 2
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "redline-diag"
+
+[root.children.children.children.props]
+title = "DIAGNOSTICS"
+width = 38
+border_style = "hex"
+grid = true
+
+[[root.children.children.children.children]]
+kind = "KeyValueRow"
+id = "redline-gateway"
+
+[root.children.children.children.children.props]
+key = "Gateway"
+value = "ACTIVE"
+connector = "."
+height = 1
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "redline-actions-panel"
+
+[root.children.children.children.props]
+title = "ACTIONS"
+width = 30
+border_style = "hex"
+grid = true
+
+[[root.children.children.children.children]]
+kind = "HBox"
+id = "redline-btn-row"
+
+[root.children.children.children.children.props]
+gap = 1
+justify = "center"
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "Button"
+id = "redline-retry"
+
+[root.children.children.children.children.children.props]
+text = "Retry"
+width = 8
+
+[[root.children.children.children.children.children]]
+kind = "Button"
+id = "redline-lock"
+
+[root.children.children.children.children.children.props]
+text = "Lock"
+width = 8
+
+[[root.children.children.children.children.children]]
+kind = "Button"
+id = "redline-purge"
+
+[root.children.children.children.children.children.props]
+text = "Purge"
+width = 8
+variant = "danger"

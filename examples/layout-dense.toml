@@ -1,0 +1,99 @@
+schema_version = "0.1"
+theme = "dark"
+
+[root]
+kind = "Panel"
+id = "layout-dense"
+
+[root.props]
+title = "Dense Layout"
+
+[[root.children]]
+kind = "VBox"
+id = "dense-flow"
+
+[root.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children]]
+kind = "Label"
+id = "dense-header"
+
+[root.children.children.props]
+text = "Header / Body / Footer"
+align = "center"
+height = 1
+
+[[root.children.children]]
+kind = "Divider"
+id = "dense-rule"
+
+[root.children.children.props]
+orientation = "horizontal"
+symbol = "-"
+height = 1
+
+[[root.children.children]]
+kind = "HBox"
+id = "dense-body"
+
+[root.children.children.props]
+gap = 2
+height = 5
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "dense-left"
+
+[root.children.children.children.props]
+title = "Queue"
+width = 24
+
+[[root.children.children.children.children]]
+kind = "List"
+id = "dense-list"
+
+[root.children.children.children.children.props]
+items = ["api", "jobs", "cache"]
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "dense-right"
+
+[root.children.children.children.props]
+title = "Notes"
+grow = 1
+
+[[root.children.children.children.children]]
+kind = "TextBlock"
+id = "dense-notes"
+
+[root.children.children.children.children.props]
+text = "Primary region grows\nSecondary region stays fixed"
+
+[[root.children.children]]
+kind = "HBox"
+id = "dense-footer"
+
+[root.children.children.props]
+gap = 2
+justify = "center"
+height = 1
+
+[[root.children.children.children]]
+kind = "Button"
+id = "dense-save"
+
+[root.children.children.children.props]
+text = "Save"
+width = 12
+
+[[root.children.children.children]]
+kind = "Button"
+id = "dense-cancel"
+
+[root.children.children.children.props]
+text = "Cancel"
+width = 12
+

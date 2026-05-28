@@ -1,0 +1,60 @@
+schema_version = "0.1"
+theme = "minimal"
+
+[root]
+kind = "VBox"
+id = "layout-responsive"
+
+[root.props]
+gap = 1
+align = "stretch"
+
+[[root.children]]
+kind = "Label"
+id = "responsive-header"
+
+[root.children.props]
+text = "Responsive Minimum"
+align = "center"
+height = 1
+
+[[root.children]]
+kind = "Panel"
+id = "responsive-main"
+
+[root.children.props]
+title = "Primary"
+grow = 1
+
+[[root.children.children]]
+kind = "TextBlock"
+id = "responsive-copy"
+
+[root.children.children.props]
+text = "One growing body region keeps compact terminals readable.\nClipping is acceptable; panic is not."
+
+[[root.children]]
+kind = "HBox"
+id = "responsive-actions"
+
+[root.children.props]
+gap = 1
+justify = "center"
+height = 1
+
+[[root.children.children]]
+kind = "Button"
+id = "responsive-ok"
+
+[root.children.children.props]
+text = "OK"
+width = 10
+
+[[root.children.children]]
+kind = "Button"
+id = "responsive-help"
+
+[root.children.children.props]
+text = "Help"
+width = 10
+

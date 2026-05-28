@@ -5,7 +5,43 @@ Documento de arquitetura e decisão de stack para o MVP.
 ## Documentacao
 
 - Requisitos funcionais e nao funcionais: `docs/requirements.md`
+- Quickstart operacional do MVP: `docs/quickstart.md`
+- Catalogo de exemplos oficiais: `docs/examples.md`
+- Padroes de layout TUI: `docs/layout-patterns.md`
+- Padroes de interacao TUI: `docs/interactions.md`
+- Templates de aplicacao: `docs/templates.md`
+- Guia de design TUI: `docs/tui-design.md`
+- Sistema visual TUI 1.0: `docs/visual-system.md`
+- Roteiro do showcase visual: `docs/showcase.md`
+- Instalacao local Linux: `docs/linux-install.md`
+- Checklist de release manual: `docs/release.md`
 - Roadmap executavel (epicos, stories e tasks): `docs/roadmap.md`
+
+## Quickstart
+
+O caminho de referencia do MVP e Linux ou WSL com Rust stable e dependencias GTK/VTE instaladas.
+
+```bash
+cargo metadata --format-version 1 --no-deps
+cargo build --workspace
+cargo test --workspace
+cargo run -p neotui-cli -- check examples/hello.toml
+cargo run -p neotui-cli -- run examples/hello.toml
+```
+
+Resultado esperado:
+
+- `metadata`, build e testes terminam com sucesso;
+- `check` imprime `check ok` para o exemplo;
+- `run` entra em alternate screen, mostra `Hello NeoTUI` e sai com `Ctrl+Q`.
+
+Consulte `docs/quickstart.md` para prerequisitos Linux/WSL, diagnostico com `doctor`, scripts PowerShell e troubleshooting de GTK/VTE.
+
+Para uma demonstracao curta do MVP, use `docs/showcase.md` ou rode `.\scripts\showcase.ps1` em um terminal interativo.
+
+Para validar uma instalacao local Linux, rode `./scripts/package-linux.sh` e siga `docs/linux-install.md`.
+
+Para preparar um artefato MVP compartilhavel, siga `docs/release.md`; `.deb` e AppImage continuam experimentais.
 
 ## 0. Design space e hipóteses antes da stack
 
@@ -253,6 +289,22 @@ NEOTUI_DEBUG=1 neotui run examples/dashboard.toml --gui
 
 O tracing e focado em subsistemas tecnicos como `cli`, `gui`, `dsl`, `registry`, `runtime` e `terminal`, sem despejar payload completo de componentes por padrao.
 
+### Baseline benchmarks
+
+O core agora expõe benchmarks leves para os caminhos mais sensíveis do MVP:
+
+```bash
+cargo test -p neotui-core --test benchmarks -- --ignored --nocapture
+```
+
+No Windows do repositório, o atalho equivalente também existe:
+
+```powershell
+.\scripts\bench.ps1
+```
+
+Os benchmarks atuais medem layout de dashboard, render de showcase e `FrameDiff`, sempre com fixtures reais e saída textual simples para comparação manual entre execuções.
+
 ## 6. Arquitetura de referência
 
 ### Módulos
@@ -360,9 +412,9 @@ teardown_terminal()
 | Layout    | `VBox`, `HBox`, `Panel`, `Spacer`, `Divider`                |
 | Texto     | `Label`, `TextBlock`                                         |
 | Interação | `Button`, `List`                                             |
-| Dados     | `Graph` simples com sparkline/barras                         |
-| UX        | foco, hover simulado, selected, disabled                     |
-| Tema      | `minimal`, `dark`, `cyberpunk`                               |
+| Dados     | `Graph`, `Table`, `Metric`, `Gauge`, `Sparkline`, `BigMetric`, `Knob` |
+| UX        | foco, hover simulado, selected, disabled, `StatusStrip`, `KeyValueRow` |
+| Tema      | `minimal`, `dark`, `cyberpunk`, `redline`                    |
 | Eventos   | key, mouse click, scroll, resize, tick                       |
 | CLI       | `run`, `check`, `doctor`                                     |
 | GUI       | `neotui run dashboard.yaml --gui` com contrato explicito de forwarding |

@@ -1,0 +1,101 @@
+schema_version = "0.1"
+theme = "minimal"
+
+[root]
+kind = "Panel"
+id = "interactive-flow"
+
+[root.props]
+title = "Interactive Flow"
+
+[[root.children]]
+kind = "VBox"
+id = "interactive-body"
+
+[root.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children]]
+kind = "Label"
+id = "interactive-title"
+
+[root.children.children.props]
+text = "Focus list, inspect the selection, then activate an action"
+align = "center"
+height = 1
+
+[[root.children.children]]
+kind = "HBox"
+id = "interactive-content"
+
+[root.children.children.props]
+gap = 2
+grow = 1
+align = "stretch"
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "interactive-list-panel"
+
+[root.children.children.children.props]
+title = "Queue"
+width = 28
+
+[[root.children.children.children.children]]
+kind = "List"
+id = "queue-list"
+
+[root.children.children.children.children.props]
+title = "Items"
+items = ["Incident triage", "Deploy review", "Capacity check", "Security scan", "Release notes", "Support handoff", "Billing sync"]
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "interactive-detail-panel"
+
+[root.children.children.children.props]
+title = "Detail"
+grow = 1
+
+[[root.children.children.children.children]]
+kind = "VBox"
+id = "interactive-detail-body"
+
+[root.children.children.children.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children.children.children.children]]
+kind = "TextBlock"
+id = "interactive-detail-copy"
+
+[root.children.children.children.children.children.props]
+text = "Tab moves focus across interactive controls. Arrow keys move the focused list selection. Mouse wheel scrolls the focused list. Enter activates the focused button. F1 requests help and Ctrl+Q exits through global runtime shortcuts."
+grow = 1
+
+[[root.children.children.children.children.children]]
+kind = "HBox"
+id = "interactive-actions"
+
+[root.children.children.children.children.children.props]
+gap = 1
+height = 1
+
+[[root.children.children.children.children.children.children]]
+kind = "Button"
+id = "approve-action"
+
+[root.children.children.children.children.children.children.props]
+text = "Approve"
+width = 12
+variant = "primary"
+
+[[root.children.children.children.children.children.children]]
+kind = "Button"
+id = "defer-action"
+
+[root.children.children.children.children.children.children.props]
+text = "Defer"
+width = 10
+variant = "secondary"

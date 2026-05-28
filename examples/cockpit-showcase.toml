@@ -1,0 +1,132 @@
+schema_version = "0.1"
+theme = "redline"
+
+[root]
+kind = "Panel"
+id = "cockpit"
+
+[root.props]
+title = "FLIGHT INSTRUMENTATION HUD"
+
+[[root.children]]
+kind = "VBox"
+id = "hud-body"
+
+[root.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children]]
+kind = "StatusStrip"
+id = "sys-status"
+
+[root.children.children.props]
+text = "SYSTEMS ONLINE // WARP DRIVE COMPATIBILITY PASSES DIAGNOSTICS"
+status = "info"
+height = 1
+
+[[root.children.children]]
+kind = "HBox"
+id = "middle-section"
+
+[root.children.children.props]
+gap = 1
+align = "stretch"
+height = 7
+
+[[root.children.children.children]]
+kind = "VBox"
+id = "metrics-column"
+
+[root.children.children.children.props]
+gap = 1
+width_pct = 40
+
+[[root.children.children.children.children]]
+kind = "Metric"
+id = "warp-core"
+
+[root.children.children.children.children.props]
+title = "WARP CORE OUT"
+value = "87.4 GW"
+delta = "+1.2% dev"
+status = "normal"
+height = 3
+
+[[root.children.children.children.children]]
+kind = "Gauge"
+id = "shield-gauge"
+
+[root.children.children.children.children.props]
+title = "SHIELD INTEGRITY"
+value = 92.5
+min = 0.0
+max = 100.0
+height = 2
+
+[[root.children.children.children]]
+kind = "VBox"
+id = "charts-column"
+
+[root.children.children.children.props]
+gap = 1
+width_pct = 60
+
+[[root.children.children.children.children]]
+kind = "Sparkline"
+id = "flux-history"
+
+[root.children.children.children.children.props]
+title = "FLUX CAPACITANCE HIST"
+values = [12.0, 15.0, 14.0, 18.0, 22.0, 21.0, 25.0, 30.0, 28.0, 32.0, 35.0, 42.0]
+height = 2
+
+[[root.children.children.children.children]]
+kind = "Table"
+id = "reactor-stats"
+
+[root.children.children.children.children.props]
+height = 4
+columns = [
+  { key = "node", title = "Node", width = 8 },
+  { key = "temp", title = "Temp", width = 8, align = "right" },
+  { key = "load", title = "Load", width = 8, align = "right" }
+]
+rows = [
+  { node = "node-alpha", temp = "342 C", load = "84%" },
+  { node = "node-beta", temp = "415 C", load = "91%" }
+]
+
+[[root.children.children]]
+kind = "Divider"
+id = "section-sep"
+
+[root.children.children.props]
+orientation = "horizontal"
+symbol = "-"
+height = 1
+
+[[root.children.children]]
+kind = "VBox"
+id = "kv-section"
+
+[root.children.children.props]
+gap = 0
+
+[[root.children.children.children]]
+kind = "KeyValueRow"
+id = "quantum-slipstream"
+
+[root.children.children.children.props]
+key = "Quantum Slipstream Gateway"
+value = "ACTIVE (PORT 8080)"
+connector = "."
+
+[[root.children.children.children]]
+kind = "KeyValueRow"
+id = "chroniton-decay"
+
+[root.children.children.children.props]
+key = "Chroniton Decay Factor"
+value = "0.0042 ppm"
+connector = "."

@@ -1,0 +1,373 @@
+schema_version = "0.1"
+theme = "redline"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# SISTEMA DE GERENCIAMENTO DE FILA — UBS CENTRO
+# Display de chamada de pacientes com hierarquia visual real:
+#   • Número chamado: BigMetric scale=2 (4 linhas de half-blocks) = ELEMENTO DOMINANTE
+#   • Fila de espera: lista compacta lateral
+#   • Consultórios: gauges com gradient fill mostrando ocupação
+#   • Rodapé: versão + hora
+# ─────────────────────────────────────────────────────────────────────────────
+
+[root]
+kind = "Panel"
+id = "clinic-root"
+
+[root.props]
+title = "SISTEMA DE GERENCIAMENTO DE FILA — UBS CENTRO"
+border_style = "hex"
+controls = true
+title_style = "chevron"
+footer_left = "v3.2.1"
+footer_right = "09:32:07"
+
+# ── Coluna principal (VBox vertical) ─────────────────────────────────────────
+[[root.children]]
+kind = "VBox"
+id = "clinic-main"
+
+[root.children.props]
+gap = 0
+align = "stretch"
+
+# ── 1. Faixa de status do sistema ────────────────────────────────────────────
+[[root.children.children]]
+kind = "StatusStrip"
+id = "clinic-status"
+
+[root.children.children.props]
+text = "ATENDIMENTO EM ANDAMENTO — SEGUNDA-FEIRA"
+status = "normal"
+fill = "chevron"
+height = 1
+
+# ── 2. Área hero + fila lateral ──────────────────────────────────────────────
+[[root.children.children]]
+kind = "HBox"
+id = "clinic-hero-row"
+
+[root.children.children.props]
+gap = 1
+align = "stretch"
+height = 10
+
+# ── 2a. Painel hero — CHAMANDO AGORA ─────────────────────────────────────────
+[[root.children.children.children]]
+kind = "Panel"
+id = "clinic-hero-panel"
+
+[root.children.children.children.props]
+title = "CHAMANDO AGORA"
+border_style = "hex"
+title_style = "chevron"
+footer_left = "PREFERENCIAL"
+footer_right = "CONSULTÓRIO 03"
+
+[[root.children.children.children.children]]
+kind = "VBox"
+id = "hero-content"
+
+[root.children.children.children.children.props]
+gap = 1
+align = "stretch"
+
+# ── Número da senha em scale=2 (4 linhas de half-blocks — elemento dominante) ─
+[[root.children.children.children.children.children]]
+kind = "BigMetric"
+id = "ticket-number"
+
+[root.children.children.children.children.children.props]
+value = "P022"
+font = "large"
+height = 4
+
+# ── Linha separadora + destino ────────────────────────────────────────────────
+[[root.children.children.children.children.children]]
+kind = "Divider"
+id = "hero-sep"
+
+[root.children.children.children.children.children.props]
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "KeyValueRow"
+id = "hero-destination"
+
+[root.children.children.children.children.children.props]
+key = "Tipo"
+value = "PREFERENCIAL"
+connector = " "
+height = 1
+
+# ── 2b. Coluna lateral — fila + hora ─────────────────────────────────────────
+[[root.children.children.children]]
+kind = "VBox"
+id = "sidebar"
+
+[root.children.children.children.props]
+gap = 1
+width = 20
+
+# ── Próximos da fila ──────────────────────────────────────────────────────────
+[[root.children.children.children.children]]
+kind = "Panel"
+id = "queue-panel"
+
+[root.children.children.children.children.props]
+title = "FILA"
+border_style = "double"
+title_style = "chevron"
+height = 8
+
+[[root.children.children.children.children.children]]
+kind = "List"
+id = "queue-list"
+
+[root.children.children.children.children.children.props]
+items = ["N-023  SALA 02", "P-024  SALA 01", "A-025  SALA 03", "N-026  aguarde", "P-027  aguarde"]
+height = 5
+
+# ── Hora atual ────────────────────────────────────────────────────────────────
+[[root.children.children.children.children]]
+kind = "Panel"
+id = "clock-panel"
+
+[root.children.children.children.children.props]
+title = "HORA"
+border_style = "rounded"
+title_style = "bracket"
+height = 3
+
+[[root.children.children.children.children.children]]
+kind = "BigMetric"
+id = "clock-display"
+
+[root.children.children.children.children.children.props]
+value = "09"
+unit = ":32"
+height = 2
+
+# ── 3. Painel de consultórios com gauges gradient ────────────────────────────
+[[root.children.children]]
+kind = "Panel"
+id = "rooms-panel"
+
+[root.children.children.props]
+title = "CONSULTÓRIOS"
+border_style = "hex"
+title_style = "chevron"
+footer_left = "Atendidos: 47"
+footer_right = "Aguardando: 12"
+height = 8
+
+[[root.children.children.children]]
+kind = "VBox"
+id = "rooms-content"
+
+[root.children.children.children.props]
+gap = 1
+align = "stretch"
+
+# ── Consultório 01 — CLÍNICA GERAL (ocupado 80%) ──────────────────────────────
+[[root.children.children.children.children]]
+kind = "HBox"
+id = "room-01-row"
+
+[root.children.children.children.children.props]
+gap = 1
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "Label"
+id = "room-01-tag"
+
+[root.children.children.children.children.children.props]
+text = "◂01▸ CLÍNICA GERAL  "
+width = 22
+
+[[root.children.children.children.children.children]]
+kind = "Gauge"
+id = "room-01-gauge"
+
+[root.children.children.children.children.children.props]
+value = 80.0
+fill_style = "gradient"
+
+[[root.children.children.children.children.children]]
+kind = "StatusStrip"
+id = "room-01-status"
+
+[root.children.children.children.children.children.props]
+text = "OCUPADO    ~45min"
+status = "critical"
+width = 20
+
+# ── Consultório 02 — PEDIATRIA (disponível 35%) ───────────────────────────────
+[[root.children.children.children.children]]
+kind = "HBox"
+id = "room-02-row"
+
+[root.children.children.children.children.props]
+gap = 1
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "Label"
+id = "room-02-tag"
+
+[root.children.children.children.children.children.props]
+text = "◂02▸ PEDIATRIA      "
+width = 22
+
+[[root.children.children.children.children.children]]
+kind = "Gauge"
+id = "room-02-gauge"
+
+[root.children.children.children.children.children.props]
+value = 35.0
+fill_style = "gradient"
+
+[[root.children.children.children.children.children]]
+kind = "StatusStrip"
+id = "room-02-status"
+
+[root.children.children.children.children.children.props]
+text = "DISPONÍVEL ~12min"
+status = "success"
+width = 20
+
+# ── Consultório 03 — ORTOPEDIA (chamando P-022) ───────────────────────────────
+[[root.children.children.children.children]]
+kind = "HBox"
+id = "room-03-row"
+
+[root.children.children.children.children.props]
+gap = 1
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "Label"
+id = "room-03-tag"
+
+[root.children.children.children.children.children.props]
+text = "◂03▸ ORTOPEDIA      "
+width = 22
+
+[[root.children.children.children.children.children]]
+kind = "Gauge"
+id = "room-03-gauge"
+
+[root.children.children.children.children.children.props]
+value = 95.0
+fill_style = "gradient"
+
+[[root.children.children.children.children.children]]
+kind = "StatusStrip"
+id = "room-03-status"
+
+[root.children.children.children.children.children.props]
+text = "CHAMANDO P-022"
+status = "warning"
+fill = "chevron"
+width = 20
+
+# ── Consultório 04 — GINECOLOGIA (livre 5%) ────────────────────────────────────
+[[root.children.children.children.children]]
+kind = "HBox"
+id = "room-04-row"
+
+[root.children.children.children.children.props]
+gap = 1
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "Label"
+id = "room-04-tag"
+
+[root.children.children.children.children.children.props]
+text = "◂04▸ GINECOLOGIA    "
+width = 22
+
+[[root.children.children.children.children.children]]
+kind = "Gauge"
+id = "room-04-gauge"
+
+[root.children.children.children.children.children.props]
+value = 5.0
+fill_style = "block"
+
+[[root.children.children.children.children.children]]
+kind = "StatusStrip"
+id = "room-04-status"
+
+[root.children.children.children.children.children.props]
+text = "LIVRE        --"
+status = "info"
+width = 20
+
+# ── 4. Linha de estatísticas ──────────────────────────────────────────────────
+[[root.children.children]]
+kind = "HBox"
+id = "clinic-stats-row"
+
+[root.children.children.props]
+gap = 2
+align = "stretch"
+height = 3
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "stats-panel"
+
+[root.children.children.children.props]
+title = "ESTATÍSTICAS DO DIA"
+border_style = "rounded"
+title_style = "arrow"
+
+[[root.children.children.children.children]]
+kind = "HBox"
+id = "stats-content"
+
+[root.children.children.children.children.props]
+gap = 4
+
+[[root.children.children.children.children.children]]
+kind = "Metric"
+id = "stat-atendidos"
+
+[root.children.children.children.children.children.props]
+title = "Atendidos"
+value = "47"
+status = "success"
+height = 2
+
+[[root.children.children.children.children.children]]
+kind = "Metric"
+id = "stat-aguardando"
+
+[root.children.children.children.children.children.props]
+title = "Aguardando"
+value = "12"
+status = "warning"
+height = 2
+
+[[root.children.children.children.children.children]]
+kind = "Metric"
+id = "stat-tempo"
+
+[root.children.children.children.children.children.props]
+title = "Tempo Médio"
+value = "18min"
+status = "normal"
+height = 2
+
+[[root.children.children.children.children.children]]
+kind = "Gauge"
+id = "day-progress"
+
+[root.children.children.children.children.children.props]
+value = 62.0
+title = "Progresso do dia"
+fill_style = "gradient"
+width = 20

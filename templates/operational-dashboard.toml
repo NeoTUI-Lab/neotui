@@ -1,0 +1,92 @@
+schema_version = "0.1"
+theme = "dark"
+
+[root]
+kind = "Panel"
+id = "template-operational-dashboard"
+
+[root.props]
+title = "Operational Dashboard"
+
+[[root.children]]
+kind = "VBox"
+id = "dashboard-body"
+
+[root.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children]]
+kind = "Label"
+id = "dashboard-title"
+
+[root.children.children.props]
+text = "Production Snapshot"
+align = "center"
+height = 1
+
+[[root.children.children]]
+kind = "HBox"
+id = "dashboard-main"
+
+[root.children.children.props]
+gap = 2
+grow = 1
+align = "stretch"
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "service-panel"
+
+[root.children.children.children.props]
+title = "Services"
+width = 30
+
+[[root.children.children.children.children]]
+kind = "List"
+id = "service-list"
+
+[root.children.children.children.children.props]
+title = "Queue"
+items = ["api green", "jobs degraded", "cache green", "billing watching", "search green"]
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "metrics-panel"
+
+[root.children.children.children.props]
+title = "Traffic"
+grow = 1
+
+[[root.children.children.children.children]]
+kind = "Graph"
+id = "traffic-graph"
+
+[root.children.children.children.children.props]
+title = "Requests"
+values = [12, 18, 22, 19, 28, 33, 31, 37]
+
+[[root.children.children]]
+kind = "HBox"
+id = "dashboard-actions"
+
+[root.children.children.props]
+gap = 1
+justify = "center"
+height = 1
+
+[[root.children.children.children]]
+kind = "Button"
+id = "acknowledge-button"
+
+[root.children.children.children.props]
+text = "Acknowledge"
+width = 16
+
+[[root.children.children.children]]
+kind = "Button"
+id = "open-runbook-button"
+
+[root.children.children.children.props]
+text = "Runbook"
+width = 12

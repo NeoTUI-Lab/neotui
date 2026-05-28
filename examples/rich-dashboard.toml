@@ -1,0 +1,182 @@
+schema_version = "0.1"
+theme = "dark"
+
+[root]
+kind = "Panel"
+id = "rich-dashboard"
+
+[root.props]
+title = "NeoTUI Operations Console"
+
+[[root.children]]
+kind = "VBox"
+id = "dashboard-content"
+
+[root.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children]]
+kind = "Label"
+id = "dashboard-title"
+
+[root.children.children.props]
+text = "Production Overview"
+align = "center"
+height = 1
+
+[[root.children.children]]
+kind = "HBox"
+id = "kpi-row"
+
+[root.children.children.props]
+gap = 2
+justify = "center"
+height = 3
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "api-kpi"
+
+[root.children.children.children.props]
+title = "API"
+width = 18
+
+[[root.children.children.children.children]]
+kind = "Label"
+id = "api-kpi-value"
+
+[root.children.children.children.children.props]
+text = "99.98% OK"
+align = "center"
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "jobs-kpi"
+
+[root.children.children.children.props]
+title = "Jobs"
+width = 18
+
+[[root.children.children.children.children]]
+kind = "Label"
+id = "jobs-kpi-value"
+
+[root.children.children.children.children.props]
+text = "42 queued"
+align = "center"
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "cache-kpi"
+
+[root.children.children.children.props]
+title = "Cache"
+width = 18
+
+[[root.children.children.children.children]]
+kind = "Label"
+id = "cache-kpi-value"
+
+[root.children.children.children.children.props]
+text = "12 ms p95"
+align = "center"
+
+[[root.children.children]]
+kind = "Divider"
+id = "main-rule"
+
+[root.children.children.props]
+orientation = "horizontal"
+symbol = "="
+height = 1
+
+[[root.children.children]]
+kind = "HBox"
+id = "detail-row"
+
+[root.children.children.props]
+gap = 2
+align = "stretch"
+height = 9
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "service-panel"
+
+[root.children.children.children.props]
+title = "Service Queue"
+width = 24
+
+[[root.children.children.children.children]]
+kind = "List"
+id = "service-list"
+
+[root.children.children.children.children.props]
+title = "Deploy order"
+items = ["api-gateway", "worker-pool", "cache-fill", "reporting"]
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "throughput-panel"
+
+[root.children.children.children.props]
+title = "Throughput"
+width = 24
+
+[[root.children.children.children.children]]
+kind = "Graph"
+id = "throughput-graph"
+
+[root.children.children.children.children.props]
+title = "req/s"
+values = [3, 4, 7, 6, 8, 5, 9, 7, 10, 8]
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "notes-panel"
+
+[root.children.children.children.props]
+title = "Operator Notes"
+width = 28
+
+[[root.children.children.children.children]]
+kind = "TextBlock"
+id = "operator-notes"
+
+[root.children.children.children.children.props]
+text = "SLO stable\nNo active incidents\nNext deploy window 15:00"
+
+[[root.children.children]]
+kind = "HBox"
+id = "action-row"
+
+[root.children.children.props]
+gap = 2
+justify = "center"
+height = 1
+
+[[root.children.children.children]]
+kind = "Button"
+id = "deploy-button"
+
+[root.children.children.children.props]
+text = "Deploy"
+width = 16
+
+[[root.children.children.children]]
+kind = "Button"
+id = "rollback-button"
+
+[root.children.children.children.props]
+text = "Rollback"
+width = 16
+
+[[root.children.children.children]]
+kind = "Button"
+id = "details-button"
+
+[root.children.children.children.props]
+text = "Details"
+width = 16
+

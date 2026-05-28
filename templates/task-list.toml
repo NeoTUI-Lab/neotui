@@ -1,0 +1,91 @@
+schema_version = "0.1"
+theme = "minimal"
+
+[root]
+kind = "Panel"
+id = "template-task-list"
+
+[root.props]
+title = "Task List"
+
+[[root.children]]
+kind = "VBox"
+id = "task-body"
+
+[root.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children]]
+kind = "Label"
+id = "task-title"
+
+[root.children.children.props]
+text = "Today"
+align = "center"
+height = 1
+
+[[root.children.children]]
+kind = "HBox"
+id = "task-main"
+
+[root.children.children.props]
+gap = 2
+grow = 1
+align = "stretch"
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "task-list-panel"
+
+[root.children.children.children.props]
+title = "Tasks"
+width = 34
+
+[[root.children.children.children.children]]
+kind = "List"
+id = "task-list"
+
+[root.children.children.children.children.props]
+title = "Backlog"
+items = ["Review support queue", "Ship release notes", "Check deploy window", "Follow up incident", "Plan next sprint"]
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "task-detail-panel"
+
+[root.children.children.children.props]
+title = "Details"
+grow = 1
+
+[[root.children.children.children.children]]
+kind = "TextBlock"
+id = "task-detail-copy"
+
+[root.children.children.children.children.props]
+text = "Use this template for a focused work queue. Replace the list items with real tasks and adapt the action row to your workflow."
+
+[[root.children.children]]
+kind = "HBox"
+id = "task-actions"
+
+[root.children.children.props]
+gap = 1
+justify = "center"
+height = 1
+
+[[root.children.children.children]]
+kind = "Button"
+id = "task-done-button"
+
+[root.children.children.children.props]
+text = "Done"
+width = 10
+
+[[root.children.children.children]]
+kind = "Button"
+id = "task-defer-button"
+
+[root.children.children.children.props]
+text = "Defer"
+width = 10

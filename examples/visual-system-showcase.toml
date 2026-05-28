@@ -1,0 +1,232 @@
+schema_version = "0.1"
+theme = "redline"
+
+[root]
+kind = "Panel"
+id = "visual-system"
+
+[root.props]
+variant = "plain"
+chrome = "minimal"
+density = "compact"
+
+[[root.children]]
+kind = "VBox"
+id = "visual-shell"
+
+[root.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children]]
+kind = "StatusStrip"
+id = "visual-status"
+
+[root.children.children.props]
+text = "VISUAL SYSTEM 1.0 // NEON AS INFORMATION"
+status = "info"
+fill = "dots"
+height = 1
+
+[[root.children.children]]
+kind = "HBox"
+id = "visual-main"
+
+[root.children.children.props]
+gap = 1
+align = "stretch"
+height = 12
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "identity-panel"
+
+[root.children.children.children.props]
+title = "ENTITY"
+variant = "data"
+chrome = "technical"
+density = "spacious"
+width = 28
+
+[[root.children.children.children.children]]
+kind = "VBox"
+id = "identity-body"
+
+[root.children.children.children.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children.children.children.children]]
+kind = "Metric"
+id = "identity-score"
+
+[root.children.children.children.children.children.props]
+title = "Recognition"
+value = "92.7"
+delta = "+4.2"
+status = "success"
+height = 3
+
+[[root.children.children.children.children.children]]
+kind = "Table"
+id = "identity-table"
+
+[root.children.children.children.children.children.props]
+height = 5
+columns = [
+  { key = "key", title = "KEY", width = 9 },
+  { key = "value", title = "VALUE", width = 12 }
+]
+rows = [
+  { key = "ID", value = "FWC25583" },
+  { key = "CLASS", value = "TRANSFER" },
+  { key = "ZONE", value = "ALFEIOS" }
+]
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "hero-panel"
+
+[root.children.children.children.props]
+title = "CURRENT SIGNAL"
+variant = "hero"
+chrome = "cinematic"
+density = "spacious"
+
+[[root.children.children.children.children]]
+kind = "VBox"
+id = "hero-body"
+
+[root.children.children.children.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children.children.children.children]]
+kind = "BigMetric"
+id = "signal-value"
+
+[root.children.children.children.children.children.props]
+value = "4515"
+unit = "DATA"
+font = "large"
+height = 4
+
+[[root.children.children.children.children.children]]
+kind = "Sparkline"
+id = "signal-history"
+
+[root.children.children.children.children.children.props]
+title = "Signal history"
+values = [12.0, 15.0, 13.0, 19.0, 22.0, 18.0, 25.0, 31.0, 29.0, 36.0, 34.0, 42.0]
+height = 3
+
+[[root.children.children.children.children.children]]
+kind = "Gauge"
+id = "signal-lock"
+
+[root.children.children.children.children.children.props]
+title = "Lock strength"
+value = 76.0
+fill_style = "gradient"
+height = 2
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "queue-panel"
+
+[root.children.children.children.props]
+title = "QUEUE"
+variant = "framed"
+chrome = "technical"
+width = 30
+
+[[root.children.children.children.children]]
+kind = "VBox"
+id = "queue-body"
+
+[root.children.children.children.children.props]
+gap = 1
+
+[[root.children.children.children.children.children]]
+kind = "StatusStrip"
+id = "queue-alert"
+
+[root.children.children.children.children.children.props]
+text = "ACCESS DENIED // MANUAL REVIEW"
+status = "warning"
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "List"
+id = "review-list"
+
+[root.children.children.children.children.children.props]
+items = ["FWC25583 transfer", "RDB.9 pointsys", "Y2-cage sync", "Remote archive"]
+height = 5
+
+[[root.children.children]]
+kind = "Panel"
+id = "lower-band"
+
+[root.children.children.props]
+title = "TELEMETRY"
+variant = "data"
+chrome = "technical"
+density = "spacious"
+height = 8
+
+[[root.children.children.children]]
+kind = "HBox"
+id = "telemetry-row"
+
+[root.children.children.children.props]
+gap = 2
+align = "stretch"
+
+[[root.children.children.children.children]]
+kind = "Metric"
+id = "latency"
+
+[root.children.children.children.children.props]
+title = "Latency"
+value = "5.9ms"
+status = "normal"
+height = 3
+
+[[root.children.children.children.children]]
+kind = "Metric"
+id = "integrity"
+
+[root.children.children.children.children.props]
+title = "Integrity"
+value = "8.5"
+status = "success"
+height = 3
+
+[[root.children.children.children.children]]
+kind = "Knob"
+id = "calibration"
+
+[root.children.children.children.children.props]
+title = "CAL"
+value = 62.0
+width = 10
+
+[[root.children.children.children.children]]
+kind = "Gauge"
+id = "archive-load"
+
+[root.children.children.children.children.props]
+title = "Archive load"
+value = 58.0
+fill_style = "block"
+height = 3
+
+[[root.children.children]]
+kind = "StatusStrip"
+id = "visual-footer"
+
+[root.children.children.props]
+text = "PRIMARY OBJECTIVE: REDUCE CHROME NOISE, PRESERVE SIGNAL"
+status = "normal"
+height = 1

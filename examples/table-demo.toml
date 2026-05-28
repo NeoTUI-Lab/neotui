@@ -1,0 +1,55 @@
+schema_version = "0.1"
+theme = "redline"
+
+[root]
+kind = "Panel"
+id = "table-demo"
+
+[root.props]
+title = "Service Grid"
+
+[[root.children]]
+kind = "VBox"
+id = "table-demo-body"
+
+[root.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children]]
+kind = "Label"
+id = "table-demo-title"
+
+[root.children.children.props]
+text = "Dense operational table"
+align = "center"
+height = 1
+
+[[root.children.children]]
+kind = "Table"
+id = "service-table"
+
+[root.children.children.props]
+height = 8
+columns = [
+  { key = "service", title = "Service", width = 14 },
+  { key = "state", title = "State", width = 8, align = "center" },
+  { key = "p95", title = "P95", width = 5, align = "right" },
+  { key = "zone", title = "Zone", width = 8 }
+]
+rows = [
+  { service = "api-gateway", state = "ok", p95 = 12, zone = "iad-1" },
+  { service = "worker-pool", state = "warn", p95 = 85, zone = "iad-2" },
+  { service = "cache-fill", state = "ok", p95 = 9, zone = "ord-1" },
+  { service = "reporting", state = "hold", p95 = 144, zone = "dfw-1" },
+  { service = "identity", state = "ok", p95 = 18, zone = "iad-1" },
+  { service = "billing", state = "ok", p95 = 22, zone = "ord-1" }
+]
+
+[[root.children.children]]
+kind = "TextBlock"
+id = "table-demo-note"
+
+[root.children.children.props]
+text = "Use arrow keys while focused to move the selected row.\nRows clip safely inside narrow terminals."
+height = 2
