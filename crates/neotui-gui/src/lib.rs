@@ -216,13 +216,21 @@ fn default_window_title(app_file: &Path) -> String {
 }
 
 fn absolutize_app_file(app_file: &Path) -> PathBuf {
-    if app_file.is_absolute() {
+    let path = if app_file.is_absolute() {
         app_file.to_path_buf()
     } else if let Ok(current_dir) = std::env::current_dir() {
         current_dir.join(app_file)
     } else {
         app_file.to_path_buf()
-    }
+    };
+
+    normalize_path(&path)
+}
+
+fn normalize_path(path: &Path) -> PathBuf {
+    path.components()
+        .filter(|component| !matches!(component, std::path::Component::CurDir))
+        .collect()
 }
 
 fn path_to_string(path: &Path) -> String {
@@ -235,6 +243,7 @@ mod platform {
     use std::{cell::RefCell, rc::Rc};
 
     use gtk::{gio, glib, prelude::*};
+    use tracing::debug;
     use vte4::prelude::*;
 
     pub(super) fn launch_embedded_terminal(options: &GuiLaunchOptions) -> Result<(), GuiError> {
@@ -305,7 +314,7 @@ mod platform {
             window.present();
         });
 
-        let exit_code = application.run();
+        let exit_code = application.run_with_args(&["neotui-gui"]);
         if let Some(error) = launch_error.borrow_mut().take() {
             return Err(error);
         }

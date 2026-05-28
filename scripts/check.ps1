@@ -13,15 +13,11 @@ if (-not (Test-Path $File)) {
     exit 1
 }
 
-# TODO: Implement actual DSL validation
-# For now, just check if file exists and has valid TOML/JSON/YAML extension
-$extension = [System.IO.Path]::GetExtension($File)
+cargo run -p neotui-cli -- check $File
 
-if ($extension -notin @('.toml', '.json', '.yaml', '.yml')) {
-    Write-Host "Unsupported file extension: $extension" -ForegroundColor Red
-    Write-Host "Supported extensions: .toml, .json, .yaml, .yml" -ForegroundColor Yellow
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "DSL validation passed!" -ForegroundColor Green
+} else {
+    Write-Host "DSL validation failed!" -ForegroundColor Red
     exit 1
 }
-
-Write-Host "File extension is valid: $extension" -ForegroundColor Green
-Write-Host "DSL validation not yet implemented - file structure check passed" -ForegroundColor Yellow

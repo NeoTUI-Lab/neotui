@@ -62,7 +62,7 @@ where
             }
             "--forward-arg" => {
                 let value = next_value(&mut args, &program_name, "--forward-arg")?;
-                options = options.with_extra_cli_args([value]);
+                options.extra_cli_args.push(value);
             }
             "--help" | "-h" => return Err(usage_message(&program_name)),
             _ => {

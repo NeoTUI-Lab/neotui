@@ -11,14 +11,15 @@ use std::{collections::BTreeMap, ffi::OsString};
 
 use clap::{Parser, Subcommand};
 use crossterm::terminal;
-use neotui_core::component::{ComponentTree, EventContext, LayoutContext};
+use neotui_core::component::{ComponentTree, EventContext, LayoutContext, LayoutNode};
 use neotui_core::diagnostics;
 use neotui_core::dsl::{AppSpec, DslFormat};
-use neotui_core::event::{Command as AppCommand, Event, EventResult};
+use neotui_core::event::{Command as AppCommand, Event, EventResult, KeyCode};
 use neotui_core::layout::Rect;
 use neotui_core::registry::ComponentRegistry;
 use neotui_core::render::{AnsiRenderer, ScreenBuffer};
 use neotui_core::runtime::{panic, AppRuntime, TerminalSession};
+use neotui_core::state::StateStore;
 use tracing::debug;
 
 #[derive(Debug, Parser)]
@@ -43,7 +44,7 @@ enum Command {
         #[arg(long, requires = "gui")]
         gui_working_directory: Option<String>,
         /// Forward one additional argument to the child `run` command inside the GUI; repeat as needed
-        #[arg(long = "gui-forward-arg", requires = "gui")]
+        #[arg(long = "gui-forward-arg", requires = "gui", allow_hyphen_values = true)]
         gui_forward_args: Vec<String>,
     },
     /// Parse and validate a NeoTUI DSL file
@@ -102,6 +103,7 @@ where
     }
 }
 
+#[derive(Debug)]
 struct LoadedApp {
     format: DslFormat,
     spec: AppSpec,
@@ -119,6 +121,22 @@ struct GuiForwardingContract {
 struct GuiBinaryInvocation {
     program: PathBuf,
     args: Vec<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ErrorCategory {
+    Input,
+    FileSystem,
+    DslParse,
+    DslValidation,
+    ComponentRegistry,
+    TerminalSession,
+    Render,
+    Runtime,
+    GuiConfig,
+    GuiEnvironment,
+    GuiBridge,
+    GuiLaunch,
 }
 
 #[derive(Debug)]
@@ -151,46 +169,21 @@ enum AppLoadError {
 
 impl fmt::Display for AppLoadError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        writeln!(f, "check failed")?;
-        writeln!(f, "file: `{}`", self.path())?;
-        writeln!(f, "phase: {}", self.phase())?;
-
-        if let Some(format) = self.format() {
-            writeln!(f, "format: {}", display_format(format))?;
-        }
-
-        if let Some(root_kind) = self.root_kind() {
-            writeln!(f, "root: `{root_kind}`")?;
-        }
-
-        match self {
-            Self::UnsupportedFormat { .. } => write!(
-                f,
-                "details: unsupported DSL format; expected .toml or .json\nhint: rename the file to use a supported extension or convert it to TOML/JSON before running `neotui check`"
-            ),
-            Self::Read { source, .. } => write!(
-                f,
-                "details: {source}\nhint: confirm the file exists and that the current user can read it"
-            ),
-            Self::Parse { source, .. } => write!(
-                f,
-                "details: {source}\nhint: fix the file syntax first, then re-run `neotui check {}`",
-                self.path()
-            ),
-            Self::Validation { errors, .. } => write!(
-                f,
-                "details:\n{errors}\nhint: fix the invalid fields above and re-run `neotui check {}`",
-                self.path()
-            ),
-            Self::Instantiation { source, .. } => write!(
-                f,
-                "details: {source}\nhint: use currently executable components such as Panel, Label, Divider, Spacer, VBox and HBox, or implement the missing runtime widget first"
-            ),
-        }
+        write!(f, "{}", self.render_for("check"))
     }
 }
 
 impl AppLoadError {
+    fn category(&self) -> ErrorCategory {
+        match self {
+            Self::UnsupportedFormat { .. } => ErrorCategory::Input,
+            Self::Read { .. } => ErrorCategory::FileSystem,
+            Self::Parse { .. } => ErrorCategory::DslParse,
+            Self::Validation { .. } => ErrorCategory::DslValidation,
+            Self::Instantiation { .. } => ErrorCategory::ComponentRegistry,
+        }
+    }
+
     fn phase(&self) -> &'static str {
         match self {
             Self::UnsupportedFormat { .. } => "format-detect",
@@ -228,6 +221,63 @@ impl AppLoadError {
             Self::UnsupportedFormat { .. } | Self::Read { .. } | Self::Parse { .. } => None,
         }
     }
+
+    fn render_for(&self, operation: &str) -> String {
+        let mut lines = vec![
+            format!("{operation} failed"),
+            format!("category: {}", display_error_category(self.category())),
+            format!("file: `{}`", self.path()),
+            format!("phase: {}", self.phase()),
+        ];
+
+        if let Some(format) = self.format() {
+            lines.push(format!("format: {}", display_format(format)));
+        }
+
+        if let Some(root_kind) = self.root_kind() {
+            lines.push(format!("root: `{root_kind}`"));
+        }
+
+        match self {
+            Self::UnsupportedFormat { .. } => {
+                lines.push("details: unsupported DSL format; expected .toml or .json".into());
+                lines.push(format!(
+                    "hint: rename the file to use a supported extension or convert it to TOML/JSON before running `neotui {operation} {}`",
+                    self.path()
+                ));
+            }
+            Self::Read { source, .. } => {
+                lines.push(format!("details: {source}"));
+                lines.push(
+                    "hint: confirm the file exists and that the current user can read it".into(),
+                );
+            }
+            Self::Parse { source, .. } => {
+                lines.push(format!("details: {source}"));
+                lines.push(format!(
+                    "hint: fix the file syntax first, then re-run `neotui {operation} {}`",
+                    self.path()
+                ));
+            }
+            Self::Validation { errors, .. } => {
+                lines.push("details: schema validation failed".into());
+                lines.push(errors.to_string());
+                lines.push(format!(
+                    "hint: fix the invalid fields above and re-run `neotui {operation} {}`",
+                    self.path()
+                ));
+            }
+            Self::Instantiation { source, .. } => {
+                lines.push(format!("details: {source}"));
+                lines.push(format!(
+                    "hint: confirm the component props/runtime support for this widget, then re-run `neotui {operation} {}`",
+                    self.path()
+                ));
+            }
+        }
+
+        lines.join("\n")
+    }
 }
 
 fn display_format(format: DslFormat) -> &'static str {
@@ -235,6 +285,46 @@ fn display_format(format: DslFormat) -> &'static str {
         DslFormat::Toml => "toml",
         DslFormat::Json => "json",
     }
+}
+
+fn display_error_category(category: ErrorCategory) -> &'static str {
+    match category {
+        ErrorCategory::Input => "input",
+        ErrorCategory::FileSystem => "filesystem",
+        ErrorCategory::DslParse => "dsl-parse",
+        ErrorCategory::DslValidation => "dsl-validation",
+        ErrorCategory::ComponentRegistry => "component-registry",
+        ErrorCategory::TerminalSession => "terminal-session",
+        ErrorCategory::Render => "render",
+        ErrorCategory::Runtime => "runtime",
+        ErrorCategory::GuiConfig => "gui-config",
+        ErrorCategory::GuiEnvironment => "gui-environment",
+        ErrorCategory::GuiBridge => "gui-bridge",
+        ErrorCategory::GuiLaunch => "gui-launch",
+    }
+}
+
+fn format_operation_error(
+    operation: &str,
+    category: ErrorCategory,
+    phase: &str,
+    path: Option<&Path>,
+    details: impl Into<String>,
+    hint: impl Into<String>,
+) -> String {
+    let mut lines = vec![
+        format!("{operation} failed"),
+        format!("category: {}", display_error_category(category)),
+        format!("phase: {phase}"),
+    ];
+
+    if let Some(path) = path {
+        lines.push(format!("file: `{}`", path.display()));
+    }
+
+    lines.push(format!("details: {}", details.into()));
+    lines.push(format!("hint: {}", hint.into()));
+    lines.join("\n")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -444,7 +534,11 @@ fn detect_alternate_screen_support(stdout_tty: bool, terminal_family: &str) -> &
 }
 
 fn detect_gui_support(gui_availability: &neotui_gui::GuiAvailability) -> &'static str {
-    let gui_manifest_present = Path::new("crates/neotui-gui/Cargo.toml").exists();
+    let gui_manifest_present = Path::new("crates/neotui-gui/Cargo.toml").exists()
+        || PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("crates/neotui-gui/Cargo.toml")
+            .exists();
 
     if !gui_manifest_present {
         "manifest-missing"
@@ -756,7 +850,8 @@ fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
 
 fn check_file(path: &Path) -> Result<String, String> {
     debug!(target: "neotui::cli", path = %path.display(), "checking DSL file");
-    let LoadedApp { format, spec, tree } = load_app(path).map_err(|error| error.to_string())?;
+    let LoadedApp { format, spec, tree } =
+        load_app(path).map_err(|error| error.render_for("check"))?;
 
     Ok(format_check_success(path, format, &spec, &tree))
 }
@@ -788,34 +883,65 @@ fn run_dispatch(
 
 fn run_file(path: &Path) -> Result<(), String> {
     debug!(target: "neotui::cli", path = %path.display(), "starting terminal run");
-    let LoadedApp { mut tree, .. } = load_app(path).map_err(|error| error.to_string())?;
+    let LoadedApp { mut tree, .. } = load_app(path).map_err(|error| error.render_for("run"))?;
+    let mut state = StateStore::new();
     let renderer = AnsiRenderer::new();
     let mut terminal = TerminalSession::new();
     let mut runtime = AppRuntime::new();
-    let mut viewport = terminal::size()
-        .map_err(|source| format!("failed to read terminal size before startup: {source}"))?;
+    let mut viewport = terminal::size().map_err(|source| {
+        format_operation_error(
+            "run",
+            ErrorCategory::TerminalSession,
+            "terminal-size",
+            Some(path),
+            source.to_string(),
+            "run `neotui doctor` to inspect terminal readiness, then retry inside an interactive terminal",
+        )
+    })?;
     let mut render_error = None;
 
     panic::install_panic_hook();
-    terminal
-        .enter()
-        .map_err(|source| format!("failed to enter terminal session: {source}"))?;
+    terminal.enter().map_err(|source| {
+        format_operation_error(
+            "run",
+            ErrorCategory::TerminalSession,
+            "terminal-enter",
+            Some(path),
+            source.to_string(),
+            "run `neotui doctor` to inspect raw-mode and alternate-screen support before retrying",
+        )
+    })?;
 
-    render_tree(&tree, viewport, &renderer)
-        .map_err(|source| format!("failed to render `{}`: {source}", path.display()))?;
+    let _ = focus_next_component(&mut tree, &mut state, true);
+    let mut layout = render_tree_with_layout(&tree, viewport, &renderer).map_err(|source| {
+        format_operation_error(
+            "run",
+            ErrorCategory::Render,
+            "initial-render",
+            Some(path),
+            source.to_string(),
+            "confirm the component tree fits the current terminal size, then retry the render path",
+        )
+    })?;
 
     let runtime_result = runtime.run(|event| {
         let mut event_ctx = EventContext::default();
-        let result = tree.dispatch_event(&mut event_ctx, &event);
+        let result =
+            dispatch_interactive_event(&mut tree, &mut state, &layout, &mut event_ctx, &event);
 
         if let Event::Resize { width, height } = &event {
-            viewport = (width, height);
+            viewport = (*width, *height);
         }
 
         if result.requests_render() || event.requests_render() {
-            if let Err(source) = render_tree(&tree, viewport, &renderer) {
-                render_error = Some(source);
-                return EventResult::Command(AppCommand::Quit);
+            match render_tree_with_layout(&tree, viewport, &renderer) {
+                Ok(next_layout) => {
+                    layout = next_layout;
+                }
+                Err(source) => {
+                    render_error = Some(source);
+                    return EventResult::Command(AppCommand::Quit);
+                }
             }
         }
 
@@ -825,25 +951,91 @@ fn run_file(path: &Path) -> Result<(), String> {
     let exit_result = terminal.exit();
 
     if let Err(source) = runtime_result {
-        return Err(format!(
-            "runtime failure while running `{}`: {source}",
-            path.display()
+        return Err(format_operation_error(
+            "run",
+            ErrorCategory::Runtime,
+            "event-loop",
+            Some(path),
+            source.to_string(),
+            "re-run with `NEOTUI_DEBUG=1` if you need subsystem tracing for the runtime path",
         ));
     }
 
     if let Some(source) = render_error {
-        return Err(format!(
-            "failed to render updated frame for `{}`: {source}",
-            path.display()
+        return Err(format_operation_error(
+            "run",
+            ErrorCategory::Render,
+            "frame-update",
+            Some(path),
+            source.to_string(),
+            "inspect the last component/event that requested a redraw and retry after fixing the render path",
         ));
     }
 
     exit_result.map_err(|source| {
-        format!(
-            "failed to restore terminal after running `{}`: {source}",
-            path.display()
+        format_operation_error(
+            "run",
+            ErrorCategory::TerminalSession,
+            "terminal-exit",
+            Some(path),
+            source.to_string(),
+            "restore the terminal state manually if needed, then re-run after checking terminal compatibility",
         )
     })
+}
+
+fn dispatch_interactive_event(
+    tree: &mut ComponentTree,
+    state: &mut StateStore,
+    layout: &LayoutNode,
+    event_ctx: &mut EventContext,
+    event: &Event,
+) -> EventResult {
+    match event {
+        Event::Key(key) if matches!(key.code, KeyCode::Tab) => {
+            focus_next_component(tree, state, !key.modifiers.shift)
+        }
+        Event::Key(_) => match state.focused().cloned() {
+            Some(focused) => tree.dispatch_event_to_target(event_ctx, &focused, event),
+            None => tree.dispatch_event(event_ctx, event),
+        },
+        Event::Scroll(_) => match tree.resolve_scroll_target(layout, state.focused(), event) {
+            Some(target) => tree.dispatch_event_to_target(event_ctx, &target, event),
+            None => EventResult::Ignored,
+        },
+        Event::Mouse(_) => tree.dispatch_mouse_event(event_ctx, layout, event),
+        _ => tree.dispatch_event(event_ctx, event),
+    }
+}
+
+fn focus_next_component(
+    tree: &mut ComponentTree,
+    state: &mut StateStore,
+    forward: bool,
+) -> EventResult {
+    let focus_order = tree.focusable_ids_depth_first();
+    let previous = state.focused().cloned();
+    let next = if forward {
+        state.focus_next(&focus_order)
+    } else {
+        state.focus_previous(&focus_order)
+    };
+
+    let Some(next) = next else {
+        return EventResult::Ignored;
+    };
+
+    let mut event_ctx = EventContext::default();
+    if let Some(previous) = previous.filter(|previous| previous != &next) {
+        let _ = tree.dispatch_event_to_target(
+            &mut event_ctx,
+            &previous,
+            &Event::FocusLost(previous.clone()),
+        );
+    }
+    let _ = tree.dispatch_event_to_target(&mut event_ctx, &next, &Event::FocusGained(next.clone()));
+
+    EventResult::RequestRender
 }
 
 fn run_file_gui(
@@ -852,7 +1044,7 @@ fn run_file_gui(
     gui_working_directory: Option<&str>,
     gui_forward_args: &[String],
 ) -> Result<(), String> {
-    load_app(path).map_err(|error| error.to_string())?;
+    load_app(path).map_err(|error| error.render_for("run"))?;
     debug!(
         target: "neotui::cli",
         path = %path.display(),
@@ -864,11 +1056,16 @@ fn run_file_gui(
 
     let options = neotui_gui::prepare_gui_launch(path).map_err(|source| {
         let retry_examples = gui_launch_retry_examples(path);
-        format!(
-            "failed to prepare GUI launch for `{}`: {source}\nhint: run `neotui doctor` to inspect Linux GUI readiness before retrying one of:\n{}\n{}",
-            path.display(),
-            retry_examples.0,
-            retry_examples.1
+        format_operation_error(
+            "run --gui",
+            ErrorCategory::GuiEnvironment,
+            "prepare-launch",
+            Some(path),
+            source.to_string(),
+            format!(
+                "run `neotui doctor` to inspect Linux GUI readiness before retrying one of:\n{}\n{}",
+                retry_examples.0, retry_examples.1
+            ),
         )
     })?;
 
@@ -886,11 +1083,19 @@ fn run_file_gui(
         .status()
         .map_err(|source| {
             let retry_examples = gui_launch_retry_examples(path);
-            format!(
-                "failed to spawn `neotui-gui` for `{}`: {source}\nhint: ensure the `neotui-gui` binary is available next to `neotui` or on PATH, then retry one of:\n{}\n{}",
-                path.display(),
-                retry_examples.0,
-                retry_examples.1
+            format_operation_error(
+                "run --gui",
+                ErrorCategory::GuiBridge,
+                "spawn-gui-binary",
+                Some(path),
+                format!(
+                    "failed to spawn `{}`: {source}",
+                    invocation.program.display()
+                ),
+                format!(
+                    "ensure the `neotui-gui` binary is available next to `neotui` or on PATH, then retry one of:\n{}\n{}",
+                    retry_examples.0, retry_examples.1
+                ),
             )
         })?;
 
@@ -900,12 +1105,19 @@ fn run_file_gui(
 
     Err({
         let retry_examples = gui_launch_retry_examples(path);
-        format!(
-            "`neotui-gui` exited unsuccessfully while launching `{}` (status: {})\nhint: run `neotui doctor` and confirm GTK/VTE prerequisites plus graphical-session availability before retrying one of:\n{}\n{}",
-            path.display(),
-            display_exit_status(&status),
-            retry_examples.0,
-            retry_examples.1
+        format_operation_error(
+            "run --gui",
+            ErrorCategory::GuiLaunch,
+            "gui-process-exit",
+            Some(path),
+            format!(
+                "`neotui-gui` exited unsuccessfully with status {}",
+                display_exit_status(&status)
+            ),
+            format!(
+                "run `neotui doctor` and confirm GTK/VTE prerequisites plus graphical-session availability before retrying one of:\n{}\n{}",
+                retry_examples.0, retry_examples.1
+            ),
         )
     })
 }
@@ -979,16 +1191,26 @@ fn current_cli_program_for_gui() -> Result<String, String> {
     std::env::current_exe()
         .map(|path| path.to_string_lossy().into_owned())
         .map_err(|source| {
-            format!(
-                "failed to resolve the current CLI executable for GUI relaunch: {source}\nhint: pass `--gui-cli-program <program>` explicitly if the current executable path is unavailable"
+            format_operation_error(
+                "run --gui",
+                ErrorCategory::GuiConfig,
+                "resolve-cli-program",
+                None,
+                source.to_string(),
+                "pass `--gui-cli-program <program>` explicitly if the current executable path is unavailable",
             )
         })
 }
 
 fn resolve_gui_binary_program() -> Result<PathBuf, String> {
     let current_exe = std::env::current_exe().map_err(|source| {
-        format!(
-            "failed to resolve the current CLI executable while looking for `neotui-gui`: {source}\nhint: ensure the GUI binary is installed and reachable on PATH"
+        format_operation_error(
+            "run --gui",
+            ErrorCategory::GuiBridge,
+            "resolve-gui-binary",
+            None,
+            source.to_string(),
+            "ensure the GUI binary is installed next to the CLI or reachable on PATH",
         )
     })?;
     let sibling = sibling_gui_binary_path(&current_exe);
@@ -1004,7 +1226,7 @@ fn sibling_gui_binary_path(current_exe: &Path) -> PathBuf {
     let binary_name = gui_binary_file_name_for(current_exe);
     current_exe
         .parent()
-        .map(|directory| directory.join(binary_name))
+        .map(|directory| directory.join(&binary_name))
         .unwrap_or_else(|| PathBuf::from(binary_name))
 }
 
@@ -1056,8 +1278,13 @@ fn normalized_non_empty_gui_value(
 ) -> Result<String, String> {
     let trimmed = value.trim();
     if trimmed.is_empty() {
-        return Err(format!(
-            "{flag} received an empty value\nhint: {usage_hint}"
+        return Err(format_operation_error(
+            "run --gui",
+            ErrorCategory::GuiConfig,
+            "validate-gui-flag",
+            None,
+            format!("{flag} received an empty value"),
+            usage_hint,
         ));
     }
 
@@ -1082,22 +1309,34 @@ fn cli_command_name(command: &Command) -> &'static str {
     }
 }
 
+#[allow(dead_code)]
 fn render_tree(
     tree: &ComponentTree,
     viewport: (u16, u16),
     renderer: &AnsiRenderer,
 ) -> std::io::Result<()> {
+    render_tree_with_layout(tree, viewport, renderer).map(|_| ())
+}
+
+fn render_tree_with_layout(
+    tree: &ComponentTree,
+    viewport: (u16, u16),
+    renderer: &AnsiRenderer,
+) -> std::io::Result<LayoutNode> {
     let area = Rect::new(0, 0, viewport.0, viewport.1);
     let mut frame = ScreenBuffer::new(viewport.0, viewport.1);
     let layout = tree.layout(&LayoutContext, area);
 
     tree.render_with_layout(&layout, &mut frame);
-    renderer.render_to_stdout(&frame)
+    renderer.render_to_stdout(&frame)?;
+    Ok(layout)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use clap::CommandFactory;
+    use neotui_core::event::{ComponentId, KeyEvent, KeyModifiers, ScrollDirection, ScrollEvent};
     #[cfg(unix)]
     use std::os::unix::process::ExitStatusExt;
     #[cfg(windows)]
@@ -1112,6 +1351,12 @@ mod tests {
         let path = std::env::temp_dir().join(format!("neotui-{unique}.{extension}"));
         fs::write(&path, contents).expect("temp fixture should be writable");
         path
+    }
+
+    fn fixture_path(path: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(path)
     }
 
     #[test]
@@ -1197,7 +1442,12 @@ mod tests {
 
     #[test]
     fn clap_help_mentions_gui_launch_controls() {
-        let help = Cli::command().render_long_help().to_string();
+        let mut command = Cli::command();
+        let help = command
+            .find_subcommand_mut("run")
+            .expect("run subcommand should be registered")
+            .render_long_help()
+            .to_string();
 
         assert!(help.contains("--gui"));
         assert!(help.contains("--gui-cli-program"));
@@ -1398,7 +1648,7 @@ text = "Hello"
         assert!(output.contains("structure_balance: leaf-only"));
         assert!(output.contains("dominant_kinds: [Label=1]"));
         assert!(output.contains("orientation: []"));
-        assert!(output.contains("layout_props: [align=1]"));
+        assert!(output.contains("layout_props: []"));
         assert!(output.contains("component_kinds: [Label=1]"));
         assert!(output.contains("component_ids: [root]"));
         let _ = fs::remove_file(path);
@@ -1406,7 +1656,8 @@ text = "Hello"
 
     #[test]
     fn load_app_builds_component_tree_for_valid_fixture() {
-        let app = load_app(Path::new("examples/hello.toml")).expect("hello fixture should load");
+        let app =
+            load_app(&fixture_path("examples/hello.toml")).expect("hello fixture should load");
 
         assert_eq!(app.format, DslFormat::Toml);
         assert_eq!(app.spec.root.kind, "Label");
@@ -1485,6 +1736,7 @@ grow = 1
         let error = check_file(&path).expect_err("yaml should not be accepted yet");
 
         assert!(error.contains("check failed"));
+        assert!(error.contains("category: input"));
         assert!(error.contains("phase: format-detect"));
         assert!(error.contains("unsupported DSL format"));
         assert!(error.contains("rename the file"));
@@ -1509,6 +1761,7 @@ grow = 1
         let error = check_file(&path).expect_err("invalid props should fail validation");
 
         assert!(error.contains("phase: validate"));
+        assert!(error.contains("category: dsl-validation"));
         assert!(error.contains("format: json"));
         assert!(error.contains("root: `Label`"));
         assert!(error.contains("root.props.text"));
@@ -1531,6 +1784,7 @@ kind = "Label"
         let error = check_file(&path).expect_err("invalid syntax should fail parsing");
 
         assert!(error.contains("phase: parse"));
+        assert!(error.contains("category: dsl-parse"));
         assert!(error.contains("format: toml"));
         assert!(error.contains("failed to parse TOML DSL"));
         assert!(error.contains("fix the file syntax first"));
@@ -1552,9 +1806,32 @@ kind = "Button"
         let error = check_file(&path).expect_err("button without text should fail validation");
 
         assert!(error.contains("phase: validate"));
+        assert!(error.contains("category: dsl-validation"));
         assert!(error.contains("root: `Button`"));
         assert!(error.contains("schema validation failed"));
         assert!(error.contains("missing required property `text`"));
+        let _ = fs::remove_file(path);
+    }
+
+    #[test]
+    fn run_path_renders_load_errors_with_run_operation_label() {
+        let path = write_temp_file(
+            "toml",
+            r#"
+schema_version = "0.1"
+
+[root]
+kind = "Button"
+"#,
+        );
+
+        let error = load_app(&path)
+            .expect_err("invalid button should fail")
+            .render_for("run");
+
+        assert!(error.contains("run failed"));
+        assert!(error.contains("category: dsl-validation"));
+        assert!(error.contains("hint: fix the invalid fields above and re-run `neotui run"));
         let _ = fs::remove_file(path);
     }
 
@@ -1613,7 +1890,9 @@ kind = "Unknown"
         let error = run_file_gui(Path::new("examples/hello.toml"), Some("cargo"), None, &[])
             .expect_err("headless or non-linux environment should not launch GUI");
 
-        assert!(error.contains("failed to prepare GUI launch"));
+        assert!(error.contains("run --gui failed"));
+        assert!(error.contains("category: gui-environment"));
+        assert!(error.contains("phase: prepare-launch"));
         assert!(error.contains("run `neotui doctor`"));
         assert!(error.contains("`--gui`"));
     }
@@ -1664,7 +1943,9 @@ kind = "Unknown"
                 .expect_err("empty forwarded arg should fail");
 
         assert!(empty_program.contains("--gui-cli-program"));
+        assert!(empty_program.contains("category: gui-config"));
         assert!(empty_workdir.contains("--gui-working-directory"));
+        assert!(empty_workdir.contains("phase: validate-gui-flag"));
         assert!(empty_forward_arg.contains("--gui-forward-arg"));
     }
 
@@ -1752,7 +2033,7 @@ kind = "Unknown"
     #[test]
     fn render_tree_draws_hello_fixture_text() {
         let LoadedApp { tree, .. } =
-            load_app(Path::new("examples/hello.toml")).expect("hello fixture should load");
+            load_app(&fixture_path("examples/hello.toml")).expect("hello fixture should load");
         let area = Rect::new(0, 0, 20, 3);
         let mut frame = ScreenBuffer::new(20, 3);
         let layout = tree.layout(&LayoutContext, area);
@@ -1768,8 +2049,8 @@ kind = "Unknown"
 
     #[test]
     fn render_tree_places_dashboard_children_in_distinct_rows() {
-        let LoadedApp { tree, .. } =
-            load_app(Path::new("examples/dashboard.toml")).expect("dashboard fixture should load");
+        let LoadedApp { tree, .. } = load_app(&fixture_path("examples/dashboard.toml"))
+            .expect("dashboard fixture should load");
         let area = Rect::new(0, 0, 36, 8);
         let mut frame = ScreenBuffer::new(36, 8);
         let layout = tree.layout(&LayoutContext, area);
@@ -1793,16 +2074,39 @@ kind = "Unknown"
 
     #[test]
     fn check_file_accepts_dashboard_examples() {
-        let toml_output = check_file(Path::new("examples/dashboard.toml"))
+        let toml_output = check_file(&fixture_path("examples/dashboard.toml"))
             .expect("dashboard.toml should validate");
-        let json_output = check_file(Path::new("examples/dashboard.json"))
+        let json_output = check_file(&fixture_path("examples/dashboard.json"))
             .expect("dashboard.json should validate");
-        let theme_output = check_file(Path::new("examples/theme-demo.toml"))
+        let theme_output = check_file(&fixture_path("examples/theme-demo.toml"))
             .expect("theme-demo.toml should validate");
-        let layout_output = check_file(Path::new("examples/layout-demo.toml"))
+        let layout_output = check_file(&fixture_path("examples/layout-demo.toml"))
             .expect("layout-demo.toml should validate");
-        let showcase_output = check_file(Path::new("examples/showcase-layout.toml"))
+        let dense_layout_output = check_file(&fixture_path("examples/layout-dense.toml"))
+            .expect("layout-dense.toml should validate");
+        let sidebar_layout_output = check_file(&fixture_path("examples/layout-sidebar.toml"))
+            .expect("layout-sidebar.toml should validate");
+        let responsive_layout_output = check_file(&fixture_path("examples/layout-responsive.toml"))
+            .expect("layout-responsive.toml should validate");
+        let interactive_output = check_file(&fixture_path("examples/interactive-flow.toml"))
+            .expect("interactive-flow.toml should validate");
+        let list_output = check_file(&fixture_path("examples/list-demo.toml"))
+            .expect("list-demo.toml should validate");
+        let rich_output = check_file(&fixture_path("examples/rich-dashboard.toml"))
+            .expect("rich-dashboard.toml should validate");
+        let redline_output = check_file(&fixture_path("examples/redline-dashboard.toml"))
+            .expect("redline-dashboard.toml should validate");
+        let table_output = check_file(&fixture_path("examples/table-demo.toml"))
+            .expect("table-demo.toml should validate");
+        let showcase_output = check_file(&fixture_path("examples/showcase-layout.toml"))
             .expect("showcase-layout.toml should validate");
+        let operational_template_output =
+            check_file(&fixture_path("templates/operational-dashboard.toml"))
+                .expect("operational dashboard template should validate");
+        let task_template_output = check_file(&fixture_path("templates/task-list.toml"))
+            .expect("task template should validate");
+        let metrics_template_output = check_file(&fixture_path("templates/metrics-monitor.toml"))
+            .expect("metrics monitor template should validate");
 
         assert!(toml_output.contains("root: `Panel`"));
         assert!(json_output.contains("root: `Panel`"));
@@ -1815,6 +2119,37 @@ kind = "Unknown"
         assert!(layout_output.contains("orientation: [horizontal=1, vertical=1]"));
         assert!(layout_output.contains("layout_props: [align=5, fixed=3, gap=2, justify=1]"));
         assert!(layout_output.contains("component_kinds: [HBox=1, Label=3, VBox=1]"));
+        assert!(dense_layout_output.contains("root: `Panel`"));
+        assert!(dense_layout_output.contains("component_kinds: [Button=2"));
+        assert!(dense_layout_output.contains("TextBlock=1"));
+        assert!(sidebar_layout_output.contains("root: `Panel`"));
+        assert!(sidebar_layout_output.contains("layout_props: [align=3, fixed=3, gap=2, grow=1]"));
+        assert!(responsive_layout_output.contains("root: `VBox`"));
+        assert!(responsive_layout_output
+            .contains("layout_props: [align=2, fixed=4, gap=2, grow=1, justify=1]"));
+        assert!(interactive_output.contains("root: `Panel`"));
+        assert!(interactive_output.contains("component_kinds: [Button=2"));
+        assert!(interactive_output.contains("List=1"));
+        assert!(interactive_output.contains("TextBlock=1"));
+        assert!(list_output.contains("root: `Panel`"));
+        assert!(list_output.contains("component_count: 4"));
+        assert!(list_output.contains("component_kinds: [Divider=1, Label=1, List=1, Panel=1]"));
+        assert!(rich_output.contains("root: `Panel`"));
+        assert!(rich_output.contains("component_count: 22"));
+        assert!(rich_output.contains("container_components: 11"));
+        assert!(rich_output.contains("leaf_components: 11"));
+        assert!(rich_output.contains("Button=3"));
+        assert!(rich_output.contains("Graph=1"));
+        assert!(rich_output.contains("List=1"));
+        assert!(rich_output.contains("TextBlock=1"));
+        assert!(redline_output.contains("theme: `redline`"));
+        assert!(redline_output.contains("root: `Panel`"));
+        assert!(redline_output.contains("Button=3"));
+        assert!(redline_output.contains("Graph=1"));
+        assert!(redline_output.contains("List=1"));
+        assert!(table_output.contains("theme: `redline`"));
+        assert!(table_output.contains("Table=1"));
+        assert!(table_output.contains("component_ids: [table-demo"));
         assert!(showcase_output.contains("root: `Panel`"));
         assert!(showcase_output.contains("component_count: 9"));
         assert!(showcase_output.contains("container_components: 3"));
@@ -1826,12 +2161,19 @@ kind = "Unknown"
         assert!(showcase_output.contains("layout_props: [align=7, fixed=5, gap=2, justify=1]"));
         assert!(showcase_output
             .contains("component_kinds: [Divider=1, HBox=1, Label=5, Panel=1, VBox=1]"));
+        assert!(operational_template_output.contains("root: `Panel`"));
+        assert!(operational_template_output.contains("Graph=1"));
+        assert!(operational_template_output.contains("List=1"));
+        assert!(task_template_output.contains("root: `Panel`"));
+        assert!(task_template_output.contains("TextBlock=1"));
+        assert!(metrics_template_output.contains("root: `Panel`"));
+        assert!(metrics_template_output.contains("Graph=1"));
     }
 
     #[test]
     fn render_tree_supports_nested_vbox_and_hbox_layouts() {
-        let LoadedApp { tree, .. } =
-            load_app(Path::new("examples/layout-demo.toml")).expect("layout fixture should load");
+        let LoadedApp { tree, .. } = load_app(&fixture_path("examples/layout-demo.toml"))
+            .expect("layout fixture should load");
         let area = Rect::new(0, 0, 20, 4);
         let mut frame = ScreenBuffer::new(20, 4);
         let layout = tree.layout(&LayoutContext, area);
@@ -1849,19 +2191,24 @@ kind = "Unknown"
         let gap_row: String = (0..20)
             .map(|x| frame.get(x, 1).map(|cell| cell.symbol).unwrap_or(' '))
             .collect();
-        let columns_row: String = (0..20)
-            .map(|x| frame.get(x, 3).map(|cell| cell.symbol).unwrap_or(' '))
-            .collect();
+        let rendered = (0..4)
+            .map(|y| {
+                (0..20)
+                    .map(|x| frame.get(x, y).map(|cell| cell.symbol).unwrap_or(' '))
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
 
-        assert!(header_row.contains("Layout Demo"));
+        assert!(header_row.contains("Layout Dem"));
         assert!(gap_row.trim().is_empty());
-        assert!(columns_row.contains("Left"));
-        assert!(columns_row.contains("Right"));
+        assert!(rendered.contains("Left"));
+        assert!(rendered.contains("Righ"));
     }
 
     #[test]
     fn render_tree_supports_showcase_layout_example() {
-        let LoadedApp { tree, .. } = load_app(Path::new("examples/showcase-layout.toml"))
+        let LoadedApp { tree, .. } = load_app(&fixture_path("examples/showcase-layout.toml"))
             .expect("showcase layout fixture should load");
         let area = Rect::new(0, 0, 40, 10);
         let mut frame = ScreenBuffer::new(40, 10);
@@ -1869,18 +2216,18 @@ kind = "Unknown"
 
         assert_eq!(layout.children[0].area, Rect::new(1, 1, 38, 8));
         assert_eq!(layout.children[0].children[0].area, Rect::new(11, 1, 18, 1));
-        assert_eq!(layout.children[0].children[2].area, Rect::new(1, 5, 38, 1));
+        assert_eq!(layout.children[0].children[2].area, Rect::new(1, 5, 38, 2));
         assert_eq!(
             layout.children[0].children[2].children[0].area,
-            Rect::new(5, 5, 8, 1)
+            Rect::new(6, 5, 8, 1)
         );
         assert_eq!(
             layout.children[0].children[2].children[1].area,
-            Rect::new(15, 5, 8, 1)
+            Rect::new(16, 5, 8, 1)
         );
         assert_eq!(
             layout.children[0].children[2].children[2].area,
-            Rect::new(25, 5, 8, 1)
+            Rect::new(26, 5, 8, 1)
         );
 
         tree.render_with_layout(&layout, &mut frame);
@@ -1900,5 +2247,152 @@ kind = "Unknown"
         assert!(stats_row.contains("Jobs OK"));
         assert!(stats_row.contains("Cache OK"));
         assert!(footer_row.contains("All critical services responding"));
+    }
+
+    #[test]
+    fn render_tree_supports_rich_dashboard_example() {
+        let LoadedApp { tree, .. } = load_app(&fixture_path("examples/rich-dashboard.toml"))
+            .expect("rich dashboard fixture should load");
+        let area = Rect::new(0, 0, 90, 22);
+        let mut frame = ScreenBuffer::new(90, 22);
+        let layout = tree.layout(&LayoutContext, area);
+
+        tree.render_with_layout(&layout, &mut frame);
+
+        let rendered = (0..22)
+            .map(|y| {
+                (0..90)
+                    .map(|x| frame.get(x, y).map(|cell| cell.symbol).unwrap_or(' '))
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("Production Overview"));
+        assert!(rendered.contains("API"));
+        assert!(rendered.contains("Service Queue"));
+        assert!(rendered.contains("Throughput"));
+        assert!(rendered.contains("Operator Notes"));
+        assert!(rendered.contains("[ Deploy ]"));
+    }
+
+    #[test]
+    fn render_tree_supports_layout_pattern_examples() {
+        let LoadedApp { tree, .. } = load_app(&fixture_path("examples/layout-sidebar.toml"))
+            .expect("sidebar layout fixture should load");
+        let area = Rect::new(0, 0, 70, 10);
+        let mut frame = ScreenBuffer::new(70, 10);
+        let layout = tree.layout(&LayoutContext, area);
+
+        tree.render_with_layout(&layout, &mut frame);
+
+        let rendered = (0..10)
+            .map(|y| {
+                (0..70)
+                    .map(|x| frame.get(x, y).map(|cell| cell.symbol).unwrap_or(' '))
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("Sections"));
+        assert!(rendered.contains("Detail"));
+        assert!(rendered.contains("Overview"));
+        assert!(rendered.contains("Selected: Overview"));
+    }
+
+    #[test]
+    fn render_tree_supports_interactive_flow_example() {
+        let LoadedApp { tree, .. } = load_app(&fixture_path("examples/interactive-flow.toml"))
+            .expect("interactive flow fixture should load");
+        let area = Rect::new(0, 0, 92, 16);
+        let mut frame = ScreenBuffer::new(92, 16);
+        let layout = tree.layout(&LayoutContext, area);
+
+        tree.render_with_layout(&layout, &mut frame);
+
+        let rendered = (0..16)
+            .map(|y| {
+                (0..92)
+                    .map(|x| frame.get(x, y).map(|cell| cell.symbol).unwrap_or(' '))
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(rendered.contains("Interactive Flow"));
+        assert!(rendered.contains("Queue"));
+        assert!(rendered.contains("Incident triage"));
+        assert!(rendered.contains("[ Approve ]"));
+        assert!(rendered.contains("[ Defer ]"));
+    }
+
+    #[test]
+    fn interactive_dispatch_cycles_focus_and_routes_events() {
+        let LoadedApp { mut tree, .. } = load_app(&fixture_path("examples/interactive-flow.toml"))
+            .expect("interactive flow fixture should load");
+        let mut state = StateStore::new();
+        let area = Rect::new(0, 0, 92, 16);
+        let layout = tree.layout(&LayoutContext, area);
+        let mut ctx = EventContext::default();
+
+        assert_eq!(
+            focus_next_component(&mut tree, &mut state, true),
+            EventResult::RequestRender
+        );
+        assert_eq!(state.focused(), Some(&ComponentId("queue-list".into())));
+        assert_eq!(
+            dispatch_interactive_event(
+                &mut tree,
+                &mut state,
+                &layout,
+                &mut ctx,
+                &Event::Key(KeyEvent {
+                    code: KeyCode::Down,
+                    modifiers: KeyModifiers::default(),
+                }),
+            ),
+            EventResult::RequestRender
+        );
+        assert_eq!(
+            dispatch_interactive_event(
+                &mut tree,
+                &mut state,
+                &layout,
+                &mut ctx,
+                &Event::Scroll(ScrollEvent {
+                    direction: ScrollDirection::Down,
+                    amount: 1,
+                }),
+            ),
+            EventResult::RequestRender
+        );
+        assert_eq!(
+            dispatch_interactive_event(
+                &mut tree,
+                &mut state,
+                &layout,
+                &mut ctx,
+                &Event::Key(KeyEvent {
+                    code: KeyCode::Tab,
+                    modifiers: KeyModifiers::default(),
+                }),
+            ),
+            EventResult::RequestRender
+        );
+        assert_eq!(state.focused(), Some(&ComponentId("approve-action".into())));
+        assert_eq!(
+            dispatch_interactive_event(
+                &mut tree,
+                &mut state,
+                &layout,
+                &mut ctx,
+                &Event::Key(KeyEvent {
+                    code: KeyCode::Enter,
+                    modifiers: KeyModifiers::default(),
+                }),
+            ),
+            EventResult::RequestRender
+        );
     }
 }
