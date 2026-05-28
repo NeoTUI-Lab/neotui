@@ -1,7 +1,6 @@
-use crate::component::{Component, Frame, LayoutContext, LayoutNode, RenderContext};
+use crate::component::{Component, EventContext, Frame, LayoutContext, LayoutNode, RenderContext};
 use crate::event::{
-    ComponentId, Event, EventContext, EventResult, KeyCode, MouseButton, MouseEventKind,
-    ScrollDirection,
+    ComponentId, Event, EventResult, KeyCode, MouseButton, MouseEventKind, ScrollDirection,
 };
 use crate::layout::Rect;
 use crate::render::Style;
@@ -235,6 +234,7 @@ mod tests {
     use crate::component::Component;
     use crate::event::{Event, KeyEvent, KeyModifiers, ScrollEvent};
     use crate::render::{Color, ScreenBuffer};
+    use crate::testing::snapshot_buffer;
 
     #[test]
     fn list_renders_title_and_items() {
@@ -272,8 +272,8 @@ mod tests {
         let render_ctx = RenderContext::new(Rect::new(0, 0, 12, 3));
         let mut frame = ScreenBuffer::new(12, 3);
         list.render(&render_ctx, &mut frame);
-        assert_eq!(frame.get(0, 1).map(|cell| cell.symbol), Some(' '));
-        assert_eq!(frame.get(0, 2).map(|cell| cell.symbol), Some('>'));
+        assert_eq!(frame.get(0, 0).map(|cell| cell.symbol), Some(' '));
+        assert_eq!(frame.get(0, 1).map(|cell| cell.symbol), Some('>'));
     }
 
     #[test]
@@ -306,5 +306,24 @@ mod tests {
         list.render(&ctx, &mut frame);
 
         assert_eq!(frame.get(0, 0).map(|cell| cell.style.clone()), Some(style));
+    }
+
+    #[test]
+    fn list_snapshot_stays_stable() {
+        let list = List::new("services", ["api", "jobs", "cache"]).with_title("Services");
+        let ctx = RenderContext::new(Rect::new(0, 0, 12, 4));
+        let mut frame = ScreenBuffer::new(12, 4);
+
+        list.render(&ctx, &mut frame);
+
+        assert_eq!(
+            snapshot_buffer(&frame),
+            concat!(
+                "Services····\n",
+                "··api·······\n",
+                "··jobs······\n",
+                "··cache·····"
+            )
+        );
     }
 }

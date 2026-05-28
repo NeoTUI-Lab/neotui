@@ -79,6 +79,7 @@ mod tests {
     use super::*;
     use crate::component::Component;
     use crate::render::{Color, ScreenBuffer};
+    use crate::testing::snapshot_buffer;
 
     #[test]
     fn label_renders_left_aligned_text() {
@@ -142,5 +143,16 @@ mod tests {
 
         assert_eq!(node.component_id, ComponentId("greeting".into()));
         assert_eq!(node.area, area);
+    }
+
+    #[test]
+    fn label_snapshot_stays_stable() {
+        let label = Label::new("title", "Neo").with_align(TextAlign::Center);
+        let ctx = RenderContext::new(Rect::new(0, 0, 9, 1));
+        let mut frame = ScreenBuffer::new(9, 1);
+
+        label.render(&ctx, &mut frame);
+
+        assert_eq!(snapshot_buffer(&frame), "···Neo···");
     }
 }

@@ -422,4 +422,72 @@ mod tests {
 
         assert_eq!(areas, vec![Rect::new(3, 0, 4, 4)]);
     }
+
+    #[test]
+    fn stack_justifies_children_at_end() {
+        let stack = Stack::vertical("layout")
+            .with_gap(1)
+            .with_justify(StackJustify::End);
+        let children = vec![
+            ComponentNode::new(Box::new(Stack::vertical("top"))).with_layout_hints(
+                crate::component::LayoutHints {
+                    height: Some(1),
+                    ..crate::component::LayoutHints::default()
+                },
+            ),
+            ComponentNode::new(Box::new(Stack::vertical("bottom"))).with_layout_hints(
+                crate::component::LayoutHints {
+                    height: Some(2),
+                    ..crate::component::LayoutHints::default()
+                },
+            ),
+        ];
+
+        let areas = stack.child_layout_areas(&Rect::new(0, 0, 6, 8), &children);
+
+        assert_eq!(areas, vec![Rect::new(0, 4, 6, 1), Rect::new(0, 6, 6, 2)]);
+    }
+
+    #[test]
+    fn stack_stretches_cross_axis_when_requested() {
+        let stack = Stack::horizontal("layout").with_align(StackAlign::Stretch);
+        let children = vec![ComponentNode::new(Box::new(Stack::horizontal("child")))
+            .with_layout_hints(crate::component::LayoutHints {
+                width: Some(3),
+                height: Some(1),
+                ..crate::component::LayoutHints::default()
+            })];
+
+        let areas = stack.child_layout_areas(&Rect::new(0, 0, 8, 4), &children);
+
+        assert_eq!(areas, vec![Rect::new(0, 0, 3, 4)]);
+    }
+
+    #[test]
+    fn stack_combines_nested_constraints_and_alignment() {
+        let root = Stack::vertical("root")
+            .with_gap(1)
+            .with_align(StackAlign::Center)
+            .with_justify(StackJustify::Center);
+        let children = vec![
+            ComponentNode::new(Box::new(Stack::horizontal("header"))).with_layout_hints(
+                crate::component::LayoutHints {
+                    width: Some(6),
+                    height: Some(1),
+                    ..crate::component::LayoutHints::default()
+                },
+            ),
+            ComponentNode::new(Box::new(Stack::horizontal("body"))).with_layout_hints(
+                crate::component::LayoutHints {
+                    width: Some(10),
+                    height: Some(2),
+                    ..crate::component::LayoutHints::default()
+                },
+            ),
+        ];
+
+        let areas = root.child_layout_areas(&Rect::new(0, 0, 16, 8), &children);
+
+        assert_eq!(areas, vec![Rect::new(5, 2, 6, 1), Rect::new(3, 4, 10, 2)]);
+    }
 }

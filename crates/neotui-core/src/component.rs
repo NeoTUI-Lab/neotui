@@ -274,6 +274,15 @@ pub struct ComponentTree {
     root: ComponentNode,
 }
 
+impl std::fmt::Debug for ComponentTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ComponentTree")
+            .field("component_count", &self.component_count())
+            .field("max_depth", &self.max_depth())
+            .finish()
+    }
+}
+
 impl ComponentTree {
     pub fn new(root: ComponentNode) -> Self {
         Self { root }
@@ -501,7 +510,7 @@ mod tests {
         let component = StubComponent::new("root", EventResult::Ignored);
         let mut frame = Frame::new(2, 1);
 
-        component.render(&RenderContext, &mut frame);
+        component.render(&RenderContext::default(), &mut frame);
 
         assert_eq!(frame.get(0, 0).map(|cell| cell.symbol), Some('N'));
     }
@@ -561,7 +570,7 @@ mod tests {
         );
         let mut frame = Frame::new(1, 1);
 
-        tree.render(&RenderContext, &mut frame);
+        tree.render(&RenderContext::default(), &mut frame);
 
         assert_eq!(frame.get(0, 0).map(|cell| cell.symbol), Some('C'));
     }
@@ -585,6 +594,24 @@ mod tests {
         assert_eq!(layout.children.len(), 2);
         assert_eq!(layout.children[0].area, Rect::new(0, 0, 8, 2));
         assert_eq!(layout.children[1].area, Rect::new(0, 2, 8, 2));
+    }
+
+    #[test]
+    fn component_tree_default_layout_splits_three_children_evenly() {
+        let tree = ComponentTree::new(
+            ComponentNode::new(Box::new(StubComponent::new("root", EventResult::Ignored)))
+                .with_children(vec![
+                    ComponentNode::new(Box::new(StubComponent::new("a", EventResult::Ignored))),
+                    ComponentNode::new(Box::new(StubComponent::new("b", EventResult::Ignored))),
+                    ComponentNode::new(Box::new(StubComponent::new("c", EventResult::Ignored))),
+                ]),
+        );
+
+        let layout = tree.layout(&LayoutContext, Rect::new(0, 0, 9, 7));
+
+        assert_eq!(layout.children[0].area, Rect::new(0, 0, 9, 2));
+        assert_eq!(layout.children[1].area, Rect::new(0, 2, 9, 2));
+        assert_eq!(layout.children[2].area, Rect::new(0, 4, 9, 3));
     }
 
     #[test]

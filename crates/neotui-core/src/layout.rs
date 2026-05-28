@@ -347,4 +347,35 @@ mod tests {
         let rects = split(Rect::new(0, 0, 5, 5), Axis::Vertical, &[]);
         assert!(rects.is_empty());
     }
+
+    #[test]
+    fn split_assigns_leftover_space_to_last_flex_constraint() {
+        let rects = split_horizontal(
+            Rect::new(0, 0, 10, 1),
+            &[
+                Constraint::Flex(1),
+                Constraint::Flex(1),
+                Constraint::Flex(1),
+            ],
+        );
+
+        assert_eq!(
+            rects,
+            vec![
+                Rect::new(0, 0, 3, 1),
+                Rect::new(3, 0, 3, 1),
+                Rect::new(6, 0, 4, 1),
+            ]
+        );
+    }
+
+    #[test]
+    fn split_clamps_percentage_before_distribution() {
+        let rects = split_vertical(
+            Rect::new(0, 0, 4, 10),
+            &[Constraint::Percentage(150), Constraint::Flex(1)],
+        );
+
+        assert_eq!(rects, vec![Rect::new(0, 0, 4, 10), Rect::new(0, 10, 4, 0)]);
+    }
 }

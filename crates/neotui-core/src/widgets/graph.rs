@@ -97,6 +97,7 @@ mod tests {
     use super::*;
     use crate::component::Component;
     use crate::render::{Color, ScreenBuffer};
+    use crate::testing::snapshot_buffer;
 
     #[test]
     fn graph_renders_title_and_bars() {
@@ -124,5 +125,19 @@ mod tests {
         graph.render(&ctx, &mut frame);
 
         assert_eq!(frame.get(0, 1).map(|cell| cell.style.clone()), Some(style));
+    }
+
+    #[test]
+    fn graph_snapshot_stays_stable() {
+        let graph = Graph::new("latency", [1.0, 2.0, 3.0]).with_title("Latency");
+        let ctx = RenderContext::new(Rect::new(0, 0, 6, 4));
+        let mut frame = ScreenBuffer::new(6, 4);
+
+        graph.render(&ctx, &mut frame);
+
+        assert_eq!(
+            snapshot_buffer(&frame),
+            concat!("Latenc\n", "··#···\n", "·##···\n", "###···")
+        );
     }
 }

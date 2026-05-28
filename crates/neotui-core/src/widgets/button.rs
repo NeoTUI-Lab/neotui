@@ -1,7 +1,5 @@
-use crate::component::{Component, Frame, LayoutContext, LayoutNode, RenderContext};
-use crate::event::{
-    ComponentId, Event, EventContext, EventResult, KeyCode, MouseButton, MouseEventKind,
-};
+use crate::component::{Component, EventContext, Frame, LayoutContext, LayoutNode, RenderContext};
+use crate::event::{ComponentId, Event, EventResult, KeyCode, MouseButton, MouseEventKind};
 use crate::layout::Rect;
 use crate::render::{Style, TextAlign};
 
@@ -122,6 +120,7 @@ mod tests {
     use crate::component::Component;
     use crate::event::{Event, KeyEvent, KeyModifiers};
     use crate::render::{Color, ScreenBuffer};
+    use crate::testing::snapshot_buffer;
 
     #[test]
     fn button_renders_centered_label() {
@@ -132,7 +131,7 @@ mod tests {
         button.render(&ctx, &mut frame);
 
         assert_eq!(frame.get(2, 0).map(|cell| cell.symbol), Some('['));
-        assert_eq!(frame.get(10, 0).map(|cell| cell.symbol), Some(']'));
+        assert_eq!(frame.get(11, 0).map(|cell| cell.symbol), Some(']'));
     }
 
     #[test]
@@ -174,5 +173,16 @@ mod tests {
         button.render(&ctx, &mut frame);
 
         assert_eq!(frame.get(2, 0).map(|cell| cell.style.clone()), Some(style));
+    }
+
+    #[test]
+    fn button_snapshot_stays_stable() {
+        let button = Button::new("deploy", "Deploy");
+        let ctx = RenderContext::new(Rect::new(0, 0, 14, 1));
+        let mut frame = ScreenBuffer::new(14, 1);
+
+        button.render(&ctx, &mut frame);
+
+        assert_eq!(snapshot_buffer(&frame), "··[·Deploy·]··");
     }
 }
