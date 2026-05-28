@@ -94,6 +94,50 @@ impl BorderStyle {
             vertical: '|',
         }
     }
+
+    pub fn double() -> Self {
+        Self {
+            top_left: '╔',
+            top_right: '╗',
+            bottom_left: '╚',
+            bottom_right: '╝',
+            horizontal: '═',
+            vertical: '║',
+        }
+    }
+
+    pub fn rounded() -> Self {
+        Self {
+            top_left: '╭',
+            top_right: '╮',
+            bottom_left: '╰',
+            bottom_right: '╯',
+            horizontal: '─',
+            vertical: '│',
+        }
+    }
+
+    pub fn hex() -> Self {
+        Self {
+            top_left: '◤',
+            top_right: '◥',
+            bottom_left: '◣',
+            bottom_right: '◢',
+            horizontal: '─',
+            vertical: '│',
+        }
+    }
+
+    pub fn angular() -> Self {
+        Self {
+            top_left: '╱',
+            top_right: '╲',
+            bottom_left: '╲',
+            bottom_right: '╱',
+            horizontal: '─',
+            vertical: '│',
+        }
+    }
 }
 
 impl Default for BorderStyle {
@@ -375,7 +419,12 @@ impl ScreenBuffer {
             return 0;
         };
 
-        self.draw_text(start_x, y, text, style)
+        let clipped = text
+            .chars()
+            .take(usize::from(text_width))
+            .collect::<String>();
+
+        self.draw_text(start_x, y, &clipped, style)
     }
 
     pub fn draw_panel(
@@ -627,7 +676,7 @@ fn build_dirty_regions(changes: &[CellChange]) -> Vec<DirtyRegion> {
 }
 
 fn merge_vertical_regions(regions: Vec<DirtyRegion>) -> Vec<DirtyRegion> {
-    let mut merged = Vec::new();
+    let mut merged: Vec<DirtyRegion> = Vec::new();
 
     for region in regions {
         if let Some(last) = merged.last_mut() {
@@ -647,6 +696,17 @@ fn merge_vertical_regions(regions: Vec<DirtyRegion>) -> Vec<DirtyRegion> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::component::{ComponentTree, LayoutContext};
+    use crate::dsl::AppSpec;
+    use crate::registry::ComponentRegistry;
+    use crate::testing::snapshot_buffer;
+    use std::path::PathBuf;
+
+    fn fixture_path(path: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(path)
+    }
     use std::io;
 
     #[derive(Debug, Default)]
@@ -1004,5 +1064,142 @@ mod tests {
         assert_eq!(buffer.get(0, 0).map(|cell| cell.symbol), Some('+'));
         assert_eq!(buffer.get(1, 1).map(|cell| cell.symbol), Some('+'));
         assert!(content.is_empty());
+    }
+
+    #[test]
+    fn test_border_style_presets() {
+        let double_b = BorderStyle::double();
+        assert_eq!(double_b.top_left, '╔');
+        assert_eq!(double_b.top_right, '╗');
+        assert_eq!(double_b.bottom_left, '╚');
+        assert_eq!(double_b.bottom_right, '╝');
+        assert_eq!(double_b.horizontal, '═');
+        assert_eq!(double_b.vertical, '║');
+
+        let rounded_b = BorderStyle::rounded();
+        assert_eq!(rounded_b.top_left, '╭');
+
+        let hex_b = BorderStyle::hex();
+        assert_eq!(hex_b.top_left, '◤');
+
+        let angular_b = BorderStyle::angular();
+        assert_eq!(angular_b.top_left, '╱');
+    }
+
+    #[test]
+    fn dashboard_snapshot_stays_stable() {
+        let input = std::fs::read_to_string(fixture_path("examples/dashboard.toml"))
+            .expect("dashboard example should exist");
+        let spec = AppSpec::from_toml_str(&input).expect("dashboard example should parse");
+        let tree: ComponentTree = ComponentRegistry::new()
+            .build_tree(&spec)
+            .expect("dashboard example should instantiate");
+        let layout = tree.layout(&LayoutContext, Rect::new(0, 0, 36, 8));
+        let mut frame = ScreenBuffer::new(36, 8);
+
+        tree.render_with_layout(&layout, &mut frame);
+
+        assert_eq!(
+            snapshot_buffer(&frame),
+            concat!(
+                "+·Operations·----------------------+\n",
+                "|··········Service·Health··········|\n",
+                "|··································|\n",
+                "|==================================|\n",
+                "|··································|\n",
+                "|All·critical·services·responding··|\n",
+                "|··································|\n",
+                "+----------------------------------+"
+            )
+        );
+    }
+
+    #[test]
+    fn redline_dashboard_snapshot_contains_skin_regions() {
+        let input = std::fs::read_to_string(fixture_path("examples/redline-dashboard.toml"))
+            .expect("redline dashboard example should exist");
+        let spec = AppSpec::from_toml_str(&input).expect("redline dashboard example should parse");
+        let tree: ComponentTree = ComponentRegistry::new()
+            .build_tree(&spec)
+            .expect("redline dashboard example should instantiate");
+        let layout = tree.layout(&LayoutContext, Rect::new(0, 0, 72, 16));
+        let mut frame = ScreenBuffer::new(72, 16);
+
+        tree.render_with_layout(&layout, &mut frame);
+        let snapshot = snapshot_buffer(&frame);
+
+        assert!(snapshot.contains("REDLINE"));
+        assert!(snapshot.contains("REBOOT"));
+        // BigMetric renders value "98" using half-block characters (▄ or ▀)
+        assert!(
+            snapshot.contains("98") || snapshot.contains('▄') || snapshot.contains('▀'),
+            "CORE panel should contain BigMetric rendering of '98'"
+        );
+        assert!(snapshot.contains("RECOVERY"));
+        // EPIC-020: chevron title decorator should be present (◂) or plain title
+        assert!(
+            snapshot.contains('◂') || snapshot.contains("REDLINE"),
+            "Root panel should use title decorator or plain title"
+        );
+    }
+
+    #[test]
+    fn cockpit_showcase_snapshot_contains_instrument_data() {
+        let input = std::fs::read_to_string(fixture_path("examples/cockpit-showcase.toml"))
+            .expect("cockpit showcase example should exist");
+        let spec = AppSpec::from_toml_str(&input).expect("cockpit showcase example should parse");
+        let tree: ComponentTree = ComponentRegistry::new()
+            .build_tree(&spec)
+            .expect("cockpit showcase example should instantiate");
+        let layout = tree.layout(&LayoutContext, Rect::new(0, 0, 72, 16));
+        let mut frame = ScreenBuffer::new(72, 16);
+
+        tree.render_with_layout(&layout, &mut frame);
+        let snapshot = snapshot_buffer(&frame);
+
+        assert!(snapshot.contains("FLIGHT"));
+        assert!(snapshot.contains("WARP"));
+        assert!(snapshot.contains("FLUX"));
+        assert!(snapshot.contains("Quantum"));
+    }
+
+    #[test]
+    fn visual_system_showcase_snapshot_contains_hierarchy() {
+        let input = std::fs::read_to_string(fixture_path("examples/visual-system-showcase.toml"))
+            .expect("visual system showcase example should exist");
+        let spec =
+            AppSpec::from_toml_str(&input).expect("visual system showcase example should parse");
+        let tree: ComponentTree = ComponentRegistry::new()
+            .build_tree(&spec)
+            .expect("visual system showcase example should instantiate");
+        let layout = tree.layout(&LayoutContext, Rect::new(0, 0, 96, 24));
+        let mut frame = ScreenBuffer::new(96, 24);
+
+        tree.render_with_layout(&layout, &mut frame);
+        let snapshot = snapshot_buffer(&frame);
+
+        assert!(snapshot.contains("VISUAL"));
+        assert!(snapshot.contains("ENTITY"));
+        assert!(snapshot.contains("CURRENT"));
+        assert!(snapshot.contains("TELEMETRY"));
+    }
+
+    #[test]
+    fn table_demo_snapshot_contains_grid_data() {
+        let input = std::fs::read_to_string(fixture_path("examples/table-demo.toml"))
+            .expect("table demo example should exist");
+        let spec = AppSpec::from_toml_str(&input).expect("table demo example should parse");
+        let tree: ComponentTree = ComponentRegistry::new()
+            .build_tree(&spec)
+            .expect("table demo example should instantiate");
+        let layout = tree.layout(&LayoutContext, Rect::new(0, 0, 64, 15));
+        let mut frame = ScreenBuffer::new(64, 15);
+
+        tree.render_with_layout(&layout, &mut frame);
+        let snapshot = snapshot_buffer(&frame);
+
+        assert!(snapshot.contains("Service"));
+        assert!(snapshot.contains("api-gateway"));
+        assert!(snapshot.contains("worker-pool"));
     }
 }

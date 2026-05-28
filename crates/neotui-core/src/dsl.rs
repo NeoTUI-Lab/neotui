@@ -313,6 +313,48 @@ impl DslValidator {
             }
             "Panel" => {
                 validate_optional_string_prop(component, path, "title", errors);
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "variant",
+                    &[
+                        "plain", "framed", "data", "alert", "hero", "danger", "warning", "success",
+                        "info",
+                    ],
+                    errors,
+                );
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "density",
+                    &["compact", "normal", "spacious"],
+                    errors,
+                );
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "chrome",
+                    &["minimal", "framed", "technical", "cinematic"],
+                    errors,
+                );
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "border_style",
+                    &["single", "double", "rounded", "hex", "angular"],
+                    errors,
+                );
+                validate_optional_bool_prop(component, path, "grid", errors);
+                validate_optional_bool_prop(component, path, "controls", errors);
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "title_style",
+                    &["plain", "chevron", "bracket", "arrow"],
+                    errors,
+                );
+                validate_optional_string_prop(component, path, "footer_left", errors);
+                validate_optional_string_prop(component, path, "footer_right", errors);
             }
             "TextBlock" => {
                 validate_required_string_prop(component, path, "text", errors);
@@ -333,6 +375,96 @@ impl DslValidator {
                 validate_optional_string_prop(component, path, "title", errors);
                 validate_no_children(component, path, errors);
             }
+            "Table" => {
+                validate_required_table_columns_prop(component, path, errors);
+                validate_required_object_array_prop(component, path, "rows", errors);
+                validate_no_children(component, path, errors);
+            }
+            "Metric" => {
+                validate_required_string_prop(component, path, "title", errors);
+                validate_required_string_prop(component, path, "value", errors);
+                validate_optional_string_prop(component, path, "delta", errors);
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "status",
+                    &["normal", "warning", "critical", "info", "success", "danger"],
+                    errors,
+                );
+                validate_no_children(component, path, errors);
+            }
+            "Gauge" => {
+                validate_required_double_prop(component, path, "value", errors);
+                validate_optional_double_prop(component, path, "min", errors);
+                validate_optional_double_prop(component, path, "max", errors);
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "orientation",
+                    &["horizontal", "vertical"],
+                    errors,
+                );
+                validate_optional_string_prop(component, path, "title", errors);
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "fill_style",
+                    &["solid", "gradient", "block"],
+                    errors,
+                );
+                validate_no_children(component, path, errors);
+            }
+            "Sparkline" => {
+                validate_required_number_array_prop(component, path, "values", errors);
+                validate_optional_string_prop(component, path, "title", errors);
+                validate_no_children(component, path, errors);
+            }
+            "KeyValueRow" => {
+                validate_required_string_prop(component, path, "key", errors);
+                validate_required_string_prop(component, path, "value", errors);
+                validate_optional_string_prop(component, path, "connector", errors);
+                validate_no_children(component, path, errors);
+            }
+            "StatusStrip" => {
+                validate_required_string_prop(component, path, "text", errors);
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "status",
+                    &["normal", "warning", "critical", "info", "success", "danger"],
+                    errors,
+                );
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "fill",
+                    &["chevron", "arrow", "dots"],
+                    errors,
+                );
+                validate_no_children(component, path, errors);
+            }
+            "BigMetric" => {
+                validate_required_string_prop(component, path, "value", errors);
+                validate_optional_string_prop(component, path, "title", errors);
+                validate_optional_string_prop(component, path, "unit", errors);
+                validate_optional_enum_prop(
+                    component,
+                    path,
+                    "font",
+                    &["compact", "large", "hero"],
+                    errors,
+                );
+                // Legacy: scale=1/2/3 maps to compact/large/hero
+                validate_optional_non_negative_integer_prop(component, path, "scale", errors);
+                validate_no_children(component, path, errors);
+            }
+            "Knob" => {
+                validate_required_double_prop(component, path, "value", errors);
+                validate_optional_double_prop(component, path, "min", errors);
+                validate_optional_double_prop(component, path, "max", errors);
+                validate_optional_string_prop(component, path, "title", errors);
+                validate_no_children(component, path, errors);
+            }
             _ => {}
         }
     }
@@ -350,7 +482,15 @@ fn is_supported_component_kind(kind: &str) -> bool {
             | "TextBlock"
             | "Button"
             | "List"
+            | "Table"
             | "Graph"
+            | "Metric"
+            | "Gauge"
+            | "Sparkline"
+            | "KeyValueRow"
+            | "StatusStrip"
+            | "Knob"
+            | "BigMetric"
     )
 }
 
@@ -455,6 +595,135 @@ fn validate_required_number_array_prop(
     }
 }
 
+fn validate_required_object_array_prop(
+    component: &ComponentSpec,
+    path: &str,
+    prop: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    match component.props.get(prop) {
+        Some(Value::Array(values))
+            if values.iter().all(|value| matches!(value, Value::Object(_))) => {}
+        Some(Value::Array(_)) => errors.push(ValidationError::new(
+            format!("{path}.props.{prop}"),
+            format!("property `{prop}` must be an array of objects"),
+        )),
+        Some(_) => errors.push(ValidationError::new(
+            format!("{path}.props.{prop}"),
+            format!("property `{prop}` must be an array of objects"),
+        )),
+        None => errors.push(ValidationError::new(
+            format!("{path}.props.{prop}"),
+            format!("missing required property `{prop}`"),
+        )),
+    }
+}
+
+fn validate_required_table_columns_prop(
+    component: &ComponentSpec,
+    path: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    let Some(value) = component.props.get("columns") else {
+        errors.push(ValidationError::new(
+            format!("{path}.props.columns"),
+            "missing required property `columns`",
+        ));
+        return;
+    };
+
+    let Value::Array(columns) = value else {
+        errors.push(ValidationError::new(
+            format!("{path}.props.columns"),
+            "property `columns` must be an array of column objects",
+        ));
+        return;
+    };
+
+    if columns.is_empty() {
+        errors.push(ValidationError::new(
+            format!("{path}.props.columns"),
+            "property `columns` must contain at least one column",
+        ));
+        return;
+    }
+
+    for (index, column) in columns.iter().enumerate() {
+        let column_path = format!("{path}.props.columns[{index}]");
+        let Value::Object(column) = column else {
+            errors.push(ValidationError::new(
+                column_path,
+                "column must be an object",
+            ));
+            continue;
+        };
+
+        validate_object_required_string_prop(column, &column_path, "key", errors);
+        validate_object_required_string_prop(column, &column_path, "title", errors);
+        validate_object_required_positive_integer_prop(column, &column_path, "width", errors);
+
+        if let Some(value) = column.get("align") {
+            match value {
+                Value::String(value) if matches!(value.as_str(), "left" | "center" | "right") => {}
+                Value::String(value) => errors.push(ValidationError::new(
+                    format!("{column_path}.align"),
+                    format!("property `align` must be one of: left, center, right (got `{value}`)"),
+                )),
+                _ => errors.push(ValidationError::new(
+                    format!("{column_path}.align"),
+                    "property `align` must be a string",
+                )),
+            }
+        }
+    }
+}
+
+fn validate_object_required_string_prop(
+    object: &BTreeMap<String, Value>,
+    path: &str,
+    prop: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    match object.get(prop) {
+        Some(Value::String(value)) if !value.trim().is_empty() => {}
+        Some(Value::String(_)) => errors.push(ValidationError::new(
+            format!("{path}.{prop}"),
+            format!("property `{prop}` must not be empty"),
+        )),
+        Some(_) => errors.push(ValidationError::new(
+            format!("{path}.{prop}"),
+            format!("property `{prop}` must be a string"),
+        )),
+        None => errors.push(ValidationError::new(
+            format!("{path}.{prop}"),
+            format!("missing required property `{prop}`"),
+        )),
+    }
+}
+
+fn validate_object_required_positive_integer_prop(
+    object: &BTreeMap<String, Value>,
+    path: &str,
+    prop: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    match object.get(prop) {
+        Some(Value::Integer(value)) if *value > 0 => {}
+        Some(Value::Integer(_)) => errors.push(ValidationError::new(
+            format!("{path}.{prop}"),
+            format!("property `{prop}` must be greater than zero"),
+        )),
+        Some(_) => errors.push(ValidationError::new(
+            format!("{path}.{prop}"),
+            format!("property `{prop}` must be greater than zero"),
+        )),
+        None => errors.push(ValidationError::new(
+            format!("{path}.{prop}"),
+            format!("missing required property `{prop}`"),
+        )),
+    }
+}
+
 fn validate_optional_enum_prop(
     component: &ComponentSpec,
     path: &str,
@@ -543,6 +812,59 @@ fn validate_optional_percentage_prop(
     }
 }
 
+fn validate_required_double_prop(
+    component: &ComponentSpec,
+    path: &str,
+    prop: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    match component.props.get(prop) {
+        Some(Value::Integer(_)) | Some(Value::Float(_)) => {}
+        Some(_) => errors.push(ValidationError::new(
+            format!("{path}.props.{prop}"),
+            format!("property `{prop}` must be a number"),
+        )),
+        None => errors.push(ValidationError::new(
+            format!("{path}.props.{prop}"),
+            format!("missing required property `{prop}`"),
+        )),
+    }
+}
+
+fn validate_optional_double_prop(
+    component: &ComponentSpec,
+    path: &str,
+    prop: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    if let Some(value) = component.props.get(prop) {
+        match value {
+            Value::Integer(_) | Value::Float(_) => {}
+            _ => errors.push(ValidationError::new(
+                format!("{path}.props.{prop}"),
+                format!("property `{prop}` must be a number"),
+            )),
+        }
+    }
+}
+
+fn validate_optional_bool_prop(
+    component: &ComponentSpec,
+    path: &str,
+    prop: &str,
+    errors: &mut Vec<ValidationError>,
+) {
+    if let Some(value) = component.props.get(prop) {
+        match value {
+            Value::Bool(_) => {}
+            _ => errors.push(ValidationError::new(
+                format!("{path}.props.{prop}"),
+                format!("property `{prop}` must be a boolean"),
+            )),
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 struct RawAppSpec {
     schema_version: Option<String>,
@@ -622,6 +944,13 @@ impl From<serde_json::Value> for Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
+
+    fn fixture_path(path: &str) -> PathBuf {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join(path)
+    }
 
     #[test]
     fn parses_minimal_toml_app_spec() {
@@ -919,6 +1248,46 @@ align = "center"
     }
 
     #[test]
+    fn validator_accepts_table_columns_and_rows() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: None,
+            root: ComponentSpec {
+                kind: "Table".into(),
+                id: Some("services".into()),
+                props: BTreeMap::from([
+                    (
+                        "columns".into(),
+                        Value::Array(vec![
+                            Value::Object(BTreeMap::from([
+                                ("key".into(), Value::String("service".into())),
+                                ("title".into(), Value::String("Service".into())),
+                                ("width".into(), Value::Integer(12)),
+                            ])),
+                            Value::Object(BTreeMap::from([
+                                ("key".into(), Value::String("state".into())),
+                                ("title".into(), Value::String("State".into())),
+                                ("width".into(), Value::Integer(8)),
+                                ("align".into(), Value::String("center".into())),
+                            ])),
+                        ]),
+                    ),
+                    (
+                        "rows".into(),
+                        Value::Array(vec![Value::Object(BTreeMap::from([
+                            ("service".into(), Value::String("api".into())),
+                            ("state".into(), Value::String("ok".into())),
+                        ]))]),
+                    ),
+                ]),
+                children: Vec::new(),
+            },
+        };
+
+        assert_eq!(spec.validate(), Ok(()));
+    }
+
+    #[test]
     fn validator_rejects_invalid_list_and_graph_arrays() {
         let spec = AppSpec {
             schema_version: "0.1".into(),
@@ -1077,7 +1446,7 @@ align = "center"
 
     #[test]
     fn parses_dashboard_toml_example() {
-        let input = std::fs::read_to_string("examples/dashboard.toml")
+        let input = std::fs::read_to_string(fixture_path("examples/dashboard.toml"))
             .expect("dashboard example should exist");
 
         let spec = AppSpec::from_toml_str(&input).expect("dashboard example should parse");
@@ -1089,8 +1458,8 @@ align = "center"
 
     #[test]
     fn parses_dashboard_json_example() {
-        let input =
-            std::fs::read_to_string("examples/dashboard.json").expect("json example should exist");
+        let input = std::fs::read_to_string(fixture_path("examples/dashboard.json"))
+            .expect("json example should exist");
 
         let spec = AppSpec::from_json_str(&input).expect("json example should parse");
 
@@ -1101,7 +1470,7 @@ align = "center"
 
     #[test]
     fn parses_showcase_layout_example() {
-        let input = std::fs::read_to_string("examples/showcase-layout.toml")
+        let input = std::fs::read_to_string(fixture_path("examples/showcase-layout.toml"))
             .expect("showcase layout example should exist");
 
         let spec = AppSpec::from_toml_str(&input).expect("showcase layout example should parse");
@@ -1111,5 +1480,212 @@ align = "center"
         assert_eq!(spec.root.children.len(), 1);
         assert_eq!(spec.root.children[0].kind, "VBox");
         assert_eq!(spec.root.children[0].children.len(), 4);
+    }
+
+    #[test]
+    fn parses_rich_dashboard_example() {
+        let input = std::fs::read_to_string(fixture_path("examples/rich-dashboard.toml"))
+            .expect("rich dashboard example should exist");
+
+        let spec = AppSpec::from_toml_str(&input).expect("rich dashboard example should parse");
+
+        assert_eq!(spec.theme.as_deref(), Some("dark"));
+        assert_eq!(spec.root.kind, "Panel");
+        assert_eq!(spec.root.id.as_deref(), Some("rich-dashboard"));
+        assert_eq!(spec.root.children[0].kind, "VBox");
+        assert!(spec.root.children[0]
+            .children
+            .iter()
+            .any(|child| child.id.as_deref() == Some("detail-row")));
+    }
+
+    #[test]
+    fn parses_redline_dashboard_example() {
+        let input = std::fs::read_to_string(fixture_path("examples/redline-dashboard.toml"))
+            .expect("redline dashboard example should exist");
+
+        let spec = AppSpec::from_toml_str(&input).expect("redline dashboard example should parse");
+
+        assert_eq!(spec.theme.as_deref(), Some("redline"));
+        assert_eq!(spec.root.kind, "Panel");
+        assert_eq!(spec.root.id.as_deref(), Some("redline-dashboard"));
+        assert_eq!(spec.validate(), Ok(()));
+    }
+
+    #[test]
+    fn parses_table_demo_example() {
+        let input = std::fs::read_to_string(fixture_path("examples/table-demo.toml"))
+            .expect("table demo example should exist");
+
+        let spec = AppSpec::from_toml_str(&input).expect("table demo example should parse");
+
+        assert_eq!(spec.theme.as_deref(), Some("redline"));
+        assert_eq!(spec.root.kind, "Panel");
+        assert!(spec.root.children[0]
+            .children
+            .iter()
+            .any(|child| child.kind == "Table"));
+        assert_eq!(spec.validate(), Ok(()));
+    }
+
+    #[test]
+    fn parses_layout_pattern_examples() {
+        for path in [
+            "examples/layout-dense.toml",
+            "examples/layout-sidebar.toml",
+            "examples/layout-responsive.toml",
+        ] {
+            let input = std::fs::read_to_string(fixture_path(path))
+                .expect("layout pattern example should exist");
+            let spec = AppSpec::from_toml_str(&input).expect("layout pattern example should parse");
+
+            assert_eq!(spec.schema_version, "0.1");
+            assert!(matches!(spec.root.kind.as_str(), "Panel" | "VBox"));
+            assert_eq!(spec.validate(), Ok(()));
+        }
+    }
+
+    #[test]
+    fn parses_interactive_flow_example() {
+        let input = std::fs::read_to_string(fixture_path("examples/interactive-flow.toml"))
+            .expect("interactive flow example should exist");
+        let spec = AppSpec::from_toml_str(&input).expect("interactive flow example should parse");
+
+        assert_eq!(spec.root.kind, "Panel");
+        assert_eq!(spec.root.id.as_deref(), Some("interactive-flow"));
+        spec.validate()
+            .expect("interactive flow example should validate");
+    }
+
+    #[test]
+    fn parses_cockpit_showcase_example() {
+        let input = std::fs::read_to_string(fixture_path("examples/cockpit-showcase.toml"))
+            .expect("cockpit showcase example should exist");
+        let spec = AppSpec::from_toml_str(&input).expect("cockpit showcase example should parse");
+
+        assert_eq!(spec.root.kind, "Panel");
+        assert_eq!(spec.root.id.as_deref(), Some("cockpit"));
+        spec.validate()
+            .expect("cockpit showcase example should validate");
+    }
+
+    #[test]
+    fn parses_visual_system_showcase_example() {
+        let input = std::fs::read_to_string(fixture_path("examples/visual-system-showcase.toml"))
+            .expect("visual system showcase example should exist");
+        let spec =
+            AppSpec::from_toml_str(&input).expect("visual system showcase example should parse");
+
+        assert_eq!(spec.root.kind, "Panel");
+        assert_eq!(spec.root.id.as_deref(), Some("visual-system"));
+        spec.validate()
+            .expect("visual system showcase example should validate");
+    }
+
+    #[test]
+    fn parses_application_templates() {
+        for path in [
+            "templates/operational-dashboard.toml",
+            "templates/task-list.toml",
+            "templates/metrics-monitor.toml",
+        ] {
+            let input =
+                std::fs::read_to_string(fixture_path(path)).expect("template fixture should exist");
+            let spec = AppSpec::from_toml_str(&input).expect("template should parse");
+
+            assert_eq!(spec.schema_version, "0.1");
+            assert!(spec
+                .root
+                .id
+                .as_deref()
+                .is_some_and(|id| id.starts_with("template-")));
+            spec.validate().expect("template should validate");
+        }
+    }
+
+    #[test]
+    fn test_knob_and_fui_panel_validation() {
+        let toml_input = r#"
+            schema_version = "0.1"
+            [root]
+            kind = "Panel"
+            id = "test-panel"
+            [root.props]
+            border_style = "hex"
+            grid = true
+            controls = true
+
+            [[root.children]]
+            kind = "Knob"
+            id = "warp-dial"
+            [root.children.props]
+            value = 42.5
+            min = 0.0
+            max = 100.0
+            title = "Warp Speed"
+        "#;
+        let spec = AppSpec::from_toml_str(toml_input).expect("spec should parse");
+        assert_eq!(spec.validate(), Ok(()));
+
+        // Let's test invalid properties
+        let invalid_toml = r#"
+            schema_version = "0.1"
+            [root]
+            kind = "Panel"
+            [root.props]
+            border_style = "invalid-style"
+            grid = "yes"
+        "#;
+        let spec_invalid = AppSpec::from_toml_str(invalid_toml).expect("spec should parse");
+        let errs = spec_invalid.validate().unwrap_err();
+        assert!(errs.to_string().contains("border_style"));
+        assert!(errs.to_string().contains("grid"));
+    }
+
+    #[test]
+    fn validator_accepts_visual_panel_props() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: Some("redline".into()),
+            root: ComponentSpec {
+                kind: "Panel".into(),
+                id: Some("visual".into()),
+                props: BTreeMap::from([
+                    ("variant".into(), Value::String("hero".into())),
+                    ("density".into(), Value::String("spacious".into())),
+                    ("chrome".into(), Value::String("cinematic".into())),
+                ]),
+                children: Vec::new(),
+            },
+        };
+
+        assert_eq!(spec.validate(), Ok(()));
+    }
+
+    #[test]
+    fn validator_rejects_invalid_visual_panel_props() {
+        let spec = AppSpec {
+            schema_version: "0.1".into(),
+            theme: Some("redline".into()),
+            root: ComponentSpec {
+                kind: "Panel".into(),
+                id: Some("visual".into()),
+                props: BTreeMap::from([
+                    ("variant".into(), Value::String("loud".into())),
+                    ("density".into(), Value::String("huge".into())),
+                    ("chrome".into(), Value::String("glass".into())),
+                ]),
+                children: Vec::new(),
+            },
+        };
+
+        let rendered = spec
+            .validate()
+            .expect_err("invalid visual panel props should fail")
+            .to_string();
+
+        assert!(rendered.contains("root.props.variant"));
+        assert!(rendered.contains("root.props.density"));
+        assert!(rendered.contains("root.props.chrome"));
     }
 }
