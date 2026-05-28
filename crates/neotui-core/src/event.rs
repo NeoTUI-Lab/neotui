@@ -84,6 +84,7 @@ pub enum MouseEventKind {
     Down(MouseButton),
     Up(MouseButton),
     Drag(MouseButton),
+    Moved,
     ScrollUp,
     ScrollDown,
 }
@@ -107,7 +108,7 @@ pub enum ScrollDirection {
     Down,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ComponentId(pub String);
 
 #[derive(Debug, Clone, PartialEq, Eq)]

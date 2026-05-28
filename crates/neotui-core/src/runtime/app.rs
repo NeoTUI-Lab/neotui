@@ -77,10 +77,11 @@ impl RuntimeIteration {
     fn new(event: Event, result: EventResult) -> Self {
         let should_quit_from_event = matches!(event, Event::QuitRequested);
         let should_quit_from_command = result.command().is_some_and(Command::requests_quit);
+        let should_render = result.requests_render() || event.requests_render();
 
         Self {
             event,
-            should_render: result.requests_render() || event.requests_render(),
+            should_render,
             should_quit: should_quit_from_event || should_quit_from_command,
             result,
         }

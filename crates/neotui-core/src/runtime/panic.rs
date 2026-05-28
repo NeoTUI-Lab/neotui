@@ -1,7 +1,7 @@
 // Panic hook for safe terminal restoration
 // Ensures terminal is restored even on panic
 
-use std::panic::{self, PanicInfo};
+use std::panic::{self, PanicHookInfo};
 use std::sync::Once;
 use tracing::error;
 
@@ -15,7 +15,7 @@ pub fn install_panic_hook() {
 }
 
 /// Panic handler that restores terminal before aborting
-fn panic_handler(info: &PanicInfo) {
+fn panic_handler(info: &PanicHookInfo) {
     // Restore terminal to safe state
     let _ = restore_terminal();
 

@@ -6,7 +6,7 @@ use crossterm::{
     execute,
     terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
 };
-use std::io::{self, Write};
+use std::io;
 use tracing::debug;
 
 /// Lifecycle contract for terminal setup and teardown.

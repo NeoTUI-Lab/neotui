@@ -84,6 +84,9 @@ fn convert_mouse_kind(kind: crossterm_event::MouseEventKind) -> MouseEventKind {
         }
         crossterm_event::MouseEventKind::ScrollUp => MouseEventKind::ScrollUp,
         crossterm_event::MouseEventKind::ScrollDown => MouseEventKind::ScrollDown,
+        crossterm_event::MouseEventKind::Moved
+        | crossterm_event::MouseEventKind::ScrollLeft
+        | crossterm_event::MouseEventKind::ScrollRight => MouseEventKind::Moved,
     }
 }
 
