@@ -1,5 +1,11 @@
 # Rust build artifacts
 /target/
+/python/neotui-py/target/
+/python/neotui-py/Cargo.lock
+
+# Native Python extension build artifacts
+*.so
+*.pyd
 
 # Python local caches
 __pycache__/
