@@ -207,6 +207,28 @@ fn graphical_session_present() -> bool {
     std::env::var_os("DISPLAY").is_some() || std::env::var_os("WAYLAND_DISPLAY").is_some()
 }
 
+/// Build the environment passed to the embedded terminal child process.
+///
+/// An embedded terminal must behave like a normal terminal and inherit the
+/// parent environment (`TERM`, `COLORTERM`, `LANG`/`LC_*`, `PATH`, the
+/// graphical-session variables, etc.). VTE's `spawn_async` treats `envv` as
+/// entries layered onto the child environment, and historical VTE versions
+/// treated it as the full environment; passing the parent environment
+/// explicitly is correct under both interpretations and removes any ambiguity
+/// about whether colors, locale and unicode reach the child app.
+fn child_environment() -> Vec<String> {
+    child_environment_from(std::env::vars())
+}
+
+fn child_environment_from<I>(vars: I) -> Vec<String>
+where
+    I: IntoIterator<Item = (String, String)>,
+{
+    vars.into_iter()
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect()
+}
+
 fn default_window_title(app_file: &Path) -> String {
     let file_name = app_file
         .file_name()
@@ -287,7 +309,8 @@ mod platform {
                 .iter()
                 .map(String::as_str)
                 .collect::<Vec<_>>();
-            let envv: [&str; 0] = [];
+            let env_strings = super::child_environment();
+            let envv = env_strings.iter().map(String::as_str).collect::<Vec<_>>();
             let terminal_for_spawn = terminal.clone();
             let app_for_error = app.clone();
             let error_for_spawn = Rc::clone(&error_for_activate);
@@ -380,6 +403,26 @@ mod tests {
             Some(expected_workdir.as_str())
         );
         assert_eq!(plan.command.last().map(String::as_str), Some("--gui"));
+    }
+
+    #[test]
+    fn child_environment_propagates_parent_variables() {
+        let env = child_environment_from([
+            ("TERM".to_string(), "xterm-256color".to_string()),
+            ("COLORTERM".to_string(), "truecolor".to_string()),
+            ("LC_ALL".to_string(), "en_US.UTF-8".to_string()),
+        ]);
+
+        assert!(env.contains(&"TERM=xterm-256color".to_string()));
+        assert!(env.contains(&"COLORTERM=truecolor".to_string()));
+        assert!(env.contains(&"LC_ALL=en_US.UTF-8".to_string()));
+    }
+
+    #[test]
+    fn child_environment_is_empty_when_parent_has_no_variables() {
+        let env = child_environment_from(std::iter::empty::<(String, String)>());
+
+        assert!(env.is_empty());
     }
 
     #[test]
