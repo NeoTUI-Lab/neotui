@@ -3,6 +3,8 @@ name = "neotui_py"
 version = "0.1.0"
 edition = "2021"
 
+[workspace]
+
 [lib]
 name = "neotui_py"
 crate-type = ["cdylib"]
