@@ -7,14 +7,20 @@ use std::io::{self, IsTerminal};
 use std::path::{Path, PathBuf};
 use std::process::Command as ProcessCommand;
 use std::process::ExitCode;
+use std::time::Duration;
 use std::{collections::BTreeMap, ffi::OsString};
 
 use clap::{Parser, Subcommand};
 use crossterm::terminal;
 use neotui_core::component::{ComponentTree, EventContext, LayoutContext, LayoutNode};
+use neotui_core::data::{
+    apply_runtime_bindings_with_forms, ActionSnapshot, ActionStatus, ActionStore, DataSnapshot,
+    DataStore, HttpActionRuntime, HttpDataRuntime,
+};
 use neotui_core::diagnostics;
 use neotui_core::dsl::{AppSpec, DslFormat};
 use neotui_core::event::{Command as AppCommand, Event, EventResult, KeyCode};
+use neotui_core::forms::FormStore;
 use neotui_core::layout::Rect;
 use neotui_core::registry::ComponentRegistry;
 use neotui_core::render::{AnsiRenderer, ScreenBuffer};
@@ -836,8 +842,18 @@ fn load_app(path: &Path) -> Result<LoadedApp, AppLoadError> {
         errors,
     })?;
 
+    let mut forms = FormStore::new();
+    for form in &spec.forms {
+        for field in &form.fields {
+            if let Some(initial) = &field.initial {
+                let _ = forms.set(form.id.clone(), field.id.clone(), initial.clone());
+            }
+        }
+    }
+    let effective_spec =
+        apply_runtime_bindings_with_forms(&spec, &DataStore::new(), &ActionStore::new(), &forms);
     let tree = ComponentRegistry::new()
-        .build_tree(&spec)
+        .build_tree(&effective_spec)
         .map_err(|source| AppLoadError::Instantiation {
             path: path_display,
             format,
@@ -883,11 +899,21 @@ fn run_dispatch(
 
 fn run_file(path: &Path) -> Result<(), String> {
     debug!(target: "neotui::cli", path = %path.display(), "starting terminal run");
-    let LoadedApp { mut tree, .. } = load_app(path).map_err(|error| error.render_for("run"))?;
+    let LoadedApp { spec, .. } = load_app(path).map_err(|error| error.render_for("run"))?;
     let mut state = StateStore::new();
+    let _ = state.initialize_forms(&spec.forms);
+    let mut data_runtime = spec.data.as_ref().map(HttpDataRuntime::new);
+    let mut action_runtime = if spec.actions.is_empty() {
+        None
+    } else {
+        Some(HttpActionRuntime::new(&spec.actions))
+    };
     let renderer = AnsiRenderer::new();
     let mut terminal = TerminalSession::new();
     let mut runtime = AppRuntime::new();
+    if data_runtime.is_some() || action_runtime.is_some() {
+        runtime = runtime.with_tick_rate(Duration::from_millis(250));
+    }
     let mut viewport = terminal::size().map_err(|source| {
         format_operation_error(
             "run",
@@ -912,6 +938,29 @@ fn run_file(path: &Path) -> Result<(), String> {
         )
     })?;
 
+    if let Some(data) = &spec.data {
+        for source in &data.sources {
+            let _ = state.set_data_snapshot(source.id().to_string(), DataSnapshot::loading());
+        }
+    }
+    for action in &spec.actions {
+        let _ = state.set_action_snapshot(action.id.clone(), ActionSnapshot::idle());
+    }
+    if let Some(runtime) = &mut data_runtime {
+        let _ = runtime.tick();
+    }
+    let mut tree = build_bound_tree(&spec, state.data(), state.actions(), state.forms()).map_err(
+        |source| {
+            format_operation_error(
+                "run",
+                ErrorCategory::Runtime,
+                "data-bindings",
+                Some(path),
+                source.to_string(),
+                "inspect data bindings and fallback props, then retry after fixing the DSL",
+            )
+        },
+    )?;
     let _ = focus_next_component(&mut tree, &mut state, true);
     let mut layout = render_tree_with_layout(&tree, viewport, &renderer).map_err(|source| {
         format_operation_error(
@@ -926,14 +975,141 @@ fn run_file(path: &Path) -> Result<(), String> {
 
     let runtime_result = runtime.run(|event| {
         let mut event_ctx = EventContext::default();
+        let mut data_changed = false;
+        let mut action_changed = false;
+        let mut form_changed = false;
+        if let Some(data_runtime) = &mut data_runtime {
+            let updates = if matches!(event, Event::Tick) {
+                data_runtime.tick()
+            } else {
+                data_runtime.poll()
+            };
+            for update in updates {
+                data_changed |= state.set_data_snapshot(update.source_id, update.snapshot);
+            }
+            if data_changed {
+                match build_bound_tree(&spec, state.data(), state.actions(), state.forms()) {
+                    Ok(next_tree) => {
+                        tree = next_tree;
+                        if let Some(focused) = state.focused().cloned() {
+                            let _ = tree.dispatch_event_to_target(
+                                &mut event_ctx,
+                                &focused,
+                                &Event::FocusGained(focused.clone()),
+                            );
+                        }
+                    }
+                    Err(source) => {
+                        render_error = Some(std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            source.to_string(),
+                        ));
+                        return EventResult::Command(AppCommand::Quit);
+                    }
+                }
+            }
+        }
+
+        if let Some(action_runtime) = &mut action_runtime {
+            for update in action_runtime.poll() {
+                action_changed |= state.set_action_snapshot(
+                    update.action_id.clone(),
+                    ActionSnapshot::from_runtime_update(&update),
+                );
+                if matches!(update.status, ActionStatus::Ready) {
+                    if let Some(data_runtime) = &mut data_runtime {
+                        for data_update in data_runtime.refresh_sources(&update.refresh_sources) {
+                            data_changed |= state
+                                .set_data_snapshot(data_update.source_id, data_update.snapshot);
+                        }
+                    }
+                }
+            }
+        }
+
+        if data_changed || action_changed {
+            match build_bound_tree(&spec, state.data(), state.actions(), state.forms()) {
+                Ok(next_tree) => {
+                    tree = next_tree;
+                    if let Some(focused) = state.focused().cloned() {
+                        let _ = tree.dispatch_event_to_target(
+                            &mut event_ctx,
+                            &focused,
+                            &Event::FocusGained(focused.clone()),
+                        );
+                    }
+                }
+                Err(source) => {
+                    render_error = Some(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        source.to_string(),
+                    ));
+                    return EventResult::Command(AppCommand::Quit);
+                }
+            }
+        }
+
         let result =
             dispatch_interactive_event(&mut tree, &mut state, &layout, &mut event_ctx, &event);
+
+        let commands = event_commands(&result, &event_ctx);
+        for command in commands {
+            if let Some((form_id, field_id, value)) = command.form_value_update() {
+                form_changed |= state.set_form_value(
+                    form_id.to_string(),
+                    field_id.to_string(),
+                    neotui_core::dsl::Value::String(value.to_string()),
+                );
+            }
+
+            if let Some(action_id) = command.action_id() {
+                if let Some(action_runtime) = &mut action_runtime {
+                    if let Some(update) = action_runtime.trigger_with_form_specs(
+                        action_id,
+                        state.forms(),
+                        &spec.forms,
+                    ) {
+                        action_changed |= state.set_action_snapshot(
+                            update.action_id.clone(),
+                            ActionSnapshot::from_runtime_update(&update),
+                        );
+                    }
+                }
+            }
+        }
+
+        if action_changed || form_changed {
+            match build_bound_tree(&spec, state.data(), state.actions(), state.forms()) {
+                Ok(next_tree) => {
+                    tree = next_tree;
+                    if let Some(focused) = state.focused().cloned() {
+                        let _ = tree.dispatch_event_to_target(
+                            &mut event_ctx,
+                            &focused,
+                            &Event::FocusGained(focused.clone()),
+                        );
+                    }
+                }
+                Err(source) => {
+                    render_error = Some(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        source.to_string(),
+                    ));
+                    return EventResult::Command(AppCommand::Quit);
+                }
+            }
+        }
 
         if let Event::Resize { width, height } = &event {
             viewport = (*width, *height);
         }
 
-        if result.requests_render() || event.requests_render() {
+        if action_changed
+            || data_changed
+            || form_changed
+            || result.requests_render()
+            || event.requests_render()
+        {
             match render_tree_with_layout(&tree, viewport, &renderer) {
                 Ok(next_layout) => {
                     layout = next_layout;
@@ -1036,6 +1212,32 @@ fn focus_next_component(
     let _ = tree.dispatch_event_to_target(&mut event_ctx, &next, &Event::FocusGained(next.clone()));
 
     EventResult::RequestRender
+}
+
+fn event_commands(result: &EventResult, ctx: &EventContext) -> Vec<AppCommand> {
+    let mut commands = Vec::new();
+    if let Some(command) = result.command() {
+        commands.push(command.clone());
+    }
+    if let Some(command) = result.bubbled_command() {
+        commands.push(command.clone());
+    }
+    for command in &ctx.commands {
+        if !commands.contains(command) {
+            commands.push(command.clone());
+        }
+    }
+    commands
+}
+
+fn build_bound_tree(
+    spec: &AppSpec,
+    data: &DataStore,
+    actions: &ActionStore,
+    forms: &FormStore,
+) -> Result<ComponentTree, neotui_core::registry::RegistryError> {
+    let effective_spec = apply_runtime_bindings_with_forms(spec, data, actions, forms);
+    ComponentRegistry::new().build_tree(&effective_spec)
 }
 
 fn run_file_gui(
@@ -2098,6 +2300,14 @@ kind = "Unknown"
             .expect("redline-dashboard.toml should validate");
         let table_output = check_file(&fixture_path("examples/table-demo.toml"))
             .expect("table-demo.toml should validate");
+        let http_output = check_file(&fixture_path("examples/http-dashboard.toml"))
+            .expect("http-dashboard.toml should validate");
+        let form_output = check_file(&fixture_path("examples/form-intent.toml"))
+            .expect("form-intent.toml should validate");
+        let device_output = check_file(&fixture_path("examples/embedded-device-control.toml"))
+            .expect("embedded-device-control.toml should validate");
+        let python_form_json_output = check_file(&fixture_path("examples/python/form-intent.json"))
+            .expect("Python form-intent.json should validate");
         let showcase_output = check_file(&fixture_path("examples/showcase-layout.toml"))
             .expect("showcase-layout.toml should validate");
         let operational_template_output =
@@ -2150,6 +2360,23 @@ kind = "Unknown"
         assert!(table_output.contains("theme: `redline`"));
         assert!(table_output.contains("Table=1"));
         assert!(table_output.contains("component_ids: [table-demo"));
+        assert!(http_output.contains("theme: `redline`"));
+        assert!(http_output.contains("Button=1"));
+        assert!(http_output.contains("StatusStrip=2"));
+        assert!(form_output.contains("root: `Panel`"));
+        assert!(form_output.contains("TextInput=1"));
+        assert!(form_output.contains("TextBlock=1"));
+        assert!(form_output.contains("StatusStrip=1"));
+        assert!(form_output.contains("Button=1"));
+        assert!(device_output.contains("theme: `redline`"));
+        assert!(device_output.contains("TextInput=2"));
+        assert!(device_output.contains("Button=2"));
+        assert!(device_output.contains("Table=1"));
+        assert!(device_output.contains("StatusStrip=3"));
+        assert!(python_form_json_output.contains("format: json"));
+        assert!(python_form_json_output.contains("root: `Panel`"));
+        assert!(python_form_json_output.contains("TextInput=1"));
+        assert!(python_form_json_output.contains("Button=1"));
         assert!(showcase_output.contains("root: `Panel`"));
         assert!(showcase_output.contains("component_count: 9"));
         assert!(showcase_output.contains("container_components: 3"));
@@ -2394,5 +2621,121 @@ kind = "Unknown"
             ),
             EventResult::RequestRender
         );
+    }
+
+    #[test]
+    fn form_input_updates_action_payload_for_embedded_device_example() {
+        let LoadedApp { spec, .. } =
+            load_app(&fixture_path("examples/embedded-device-control.toml"))
+                .expect("embedded device fixture should load");
+        let mut state = StateStore::new();
+        let _ = state.initialize_forms(&spec.forms);
+        let mut tree = build_bound_tree(&spec, state.data(), state.actions(), state.forms())
+            .expect("bound fixture should instantiate");
+        let area = Rect::new(0, 0, 144, 36);
+        let mut layout = tree.layout(&LayoutContext, area);
+        let target = ComponentId("mode-input".into());
+
+        for _ in 0..tree.focusable_ids_depth_first().len() {
+            if state.focused() == Some(&target) {
+                break;
+            }
+            assert_eq!(
+                focus_next_component(&mut tree, &mut state, true),
+                EventResult::RequestRender
+            );
+        }
+        assert_eq!(state.focused(), Some(&target));
+
+        for _ in 0.."maintenance-window".chars().count() {
+            dispatch_form_key_and_rebuild(
+                &spec,
+                &mut tree,
+                &mut state,
+                &mut layout,
+                KeyCode::Backspace,
+            );
+        }
+        for ch in "field-test".chars() {
+            dispatch_form_key_and_rebuild(
+                &spec,
+                &mut tree,
+                &mut state,
+                &mut layout,
+                KeyCode::Char(ch),
+            );
+        }
+
+        assert_eq!(
+            state.forms().get("device", "mode"),
+            Some(&neotui_core::dsl::Value::String("field-test".into()))
+        );
+
+        let action = spec
+            .actions
+            .iter()
+            .find(|action| action.id == "apply_device_config")
+            .expect("apply action should exist");
+        let rendered = neotui_core::data::render_action_payload(action, state.forms());
+
+        assert_eq!(
+            rendered.http.body,
+            Some(neotui_core::data::HttpBody::Json(
+                neotui_core::dsl::Value::Object(BTreeMap::from([
+                    (
+                        "hostname".into(),
+                        neotui_core::dsl::Value::String("edge-gateway-07".into())
+                    ),
+                    (
+                        "intent".into(),
+                        neotui_core::dsl::Value::String("apply_config".into())
+                    ),
+                    (
+                        "mode".into(),
+                        neotui_core::dsl::Value::String("field-test".into())
+                    ),
+                ]))
+            ))
+        );
+    }
+
+    fn dispatch_form_key_and_rebuild(
+        spec: &AppSpec,
+        tree: &mut ComponentTree,
+        state: &mut StateStore,
+        layout: &mut LayoutNode,
+        code: KeyCode,
+    ) {
+        let mut ctx = EventContext::default();
+        let result = dispatch_interactive_event(
+            tree,
+            state,
+            layout,
+            &mut ctx,
+            &Event::Key(KeyEvent {
+                code,
+                modifiers: KeyModifiers::default(),
+            }),
+        );
+        for command in event_commands(&result, &ctx) {
+            if let Some((form_id, field_id, value)) = command.form_value_update() {
+                let _ = state.set_form_value(
+                    form_id.to_string(),
+                    field_id.to_string(),
+                    neotui_core::dsl::Value::String(value.to_string()),
+                );
+            }
+        }
+        *tree = build_bound_tree(spec, state.data(), state.actions(), state.forms())
+            .expect("bound fixture should rebuild after form update");
+        if let Some(focused) = state.focused().cloned() {
+            let mut focus_ctx = EventContext::default();
+            let _ = tree.dispatch_event_to_target(
+                &mut focus_ctx,
+                &focused,
+                &Event::FocusGained(focused.clone()),
+            );
+        }
+        *layout = tree.layout(&LayoutContext, Rect::new(0, 0, 144, 36));
     }
 }

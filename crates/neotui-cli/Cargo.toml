@@ -8,7 +8,7 @@ name = "neotui"
 path = "src/main.rs"
 
 [dependencies]
-neotui-core = { path = "../neotui-core" }
+neotui-core = { path = "../neotui-core", features = ["http"] }
 neotui-gui = { path = "../neotui-gui" }
 clap = { version = "4.5", features = ["derive"] }
 crossterm = "0.27"
