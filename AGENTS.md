@@ -6,32 +6,32 @@ This header supersedes the legacy task-only block below. From this point forward
 
 #### Last Closed Epic
 
-**EPIC-022** - Visual System TUI 1.0
+**EPIC-028** - Python API Parity for Current DSL
 - Status: Closed
-- Date: 2026-05-28
-- Summary: Added the first robust rich-TUI visual grammar: semantic surface/border/accent/data tokens, `Panel` visual intent through `variant`, `density` and `chrome`, `docs/visual-system.md`, and `examples/visual-system-showcase.toml` as the calmer modern showcase target.
+- Date: 2026-05-31
+- Summary: Completed and verified Python API parity for the current DSL: Python builders for rich/current widgets, data sources, actions and forms; declarative action binding serialization; App roundtrip support; `check(app)` through the CLI; Python form-intent example and JSON contract fixture; pure and native Python test helpers; CI/native gate coverage; WSL Rust workspace verification; native PyO3/maturin verification; `neotui check` validation for the emitted JSON; and manual form-intent smoke confirming the backend ack payload contains the edited `TextInput` value.
 
 ### Last Executed US
 
-**US-022.6** - Visual System reference showcase
-- Status: Completed
+**US-029.1** - Embedded device app fixture
+- Status: Automated Verification Completed; Manual Smoke Pending
 - Priority: P1
-- Depends on: US-022.5
-- Date: 2026-05-28
-- Summary: Completed EPIC-022 by adding the Visual System 1.0 reference showcase, wiring it into docs and scripts, covering parse/registry/render smoke tests, and recording the richer panel variant/density/chrome contract.
+- Depends on: EPIC-028
+- Date: 2026-06-01
+- Summary: Selected EPIC-029 as the curated Embedded Device Control Panel example; added `examples/embedded-device-control.toml` with live device telemetry, interface table, form-backed hostname/mode config, apply/restart HTTP actions and action status bindings; extended `scripts/mock-http-backend.py` with `/device/status`, `/device/apply` and `/device/restart`; added `docs/embedded-device-control.md`; linked the app from README and `docs/examples.md`; added core/CLI fixture coverage; and added `scripts/test-embedded-device.sh` to run fixture checks, `neotui check`, mock-backend endpoint verification and action payload checks on an ephemeral backend port. WSL automated verification passes: `bash scripts/test-embedded-device.sh` completed with `Embedded device automated checks passed.` Manual terminal UI smoke remains pending before closing EPIC-029.
 
 ### Next US
 
-**US-023.1** - definir proximo epico de produto
-- Status: Pending Product Decision
-- Priority: TBD
-- Depends on: US-022.6
-- Date: 2026-05-28
-- Summary: Select next roadmap epic, e.g. animation/tick layer, more real-world showcases, CLI expansion or Python integration.
+**US-029.2** - Embedded device end-to-end smoke
+- Status: Pending Verification
+- Priority: P1
+- Depends on: EPIC-028
+- Date: 2026-06-01
+- Summary: Run `bash scripts/test-embedded-device.sh` in WSL, then run the interactive UI against `scripts/mock-http-backend.py`, edit `hostname` or `mode`, trigger `Apply Config` or `Restart Agent`, and confirm the backend prints the edited device action payload.
 
 ### Objective
 
-EPIC-022 is complete. NeoTUI now has a documented Visual System 1.0 layer for modern rich TUI composition, with semantic theme tokens, panel visual intent props and a reference showcase.
+EPIC-026, EPIC-027 and EPIC-028 are closed and verified. EPIC-029 is now selected: create a curated Embedded Device Control Panel application that demonstrates NeoTUI as a lightweight operational UI for embedded Linux/headless devices.
 
 ### Scope
 

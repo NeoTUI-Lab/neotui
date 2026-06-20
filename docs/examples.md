@@ -22,6 +22,11 @@ These examples are the current MVP fixtures for validating and demonstrating Neo
 | `examples/tron-hud.toml` | Redline sci-fi HUD reference skin | `Panel`, `StatusStrip`, `BigMetric`, `Gauge`, `Sparkline`, `Table`, `Knob`, `KeyValueRow`, `Button` |
 | `examples/clinic-queue.toml` | Real-world queue display with large hierarchy | `Panel`, `StatusStrip`, `BigMetric`, `Gauge`, `Metric`, `List`, `KeyValueRow` |
 | `examples/visual-system-showcase.toml` | Visual System 1.0 reference composition | `Panel`, `StatusStrip`, `BigMetric`, `Metric`, `Gauge`, `Sparkline`, `Table`, `Knob`, `List` |
+| `examples/http-dashboard.toml` | Declarative HTTP data source and action fixture | `Panel`, `StatusStrip`, `Metric`, `Gauge`, `Sparkline`, `List`, `Button` |
+| `examples/form-intent.toml` | Declarative form state, `$forms` binding and form-driven action payload fixture | `Panel`, `VBox`, `Label`, `TextInput`, `TextBlock`, `StatusStrip`, `Button` |
+| `examples/embedded-device-control.toml` | End-to-end embedded Linux device control panel with telemetry, form-backed config and HTTP actions | `Panel`, `VBox`, `HBox`, `Metric`, `Gauge`, `Sparkline`, `Table`, `TextInput`, `StatusStrip`, `Button`, `KeyValueRow` |
+| `examples/python/form_intent.py` | Python API version of the form intent fixture, serializing forms and actions to the current DSL contract | `App`, `Form`, `HttpAction`, `TextInput`, `StatusStrip`, `Button` |
+| `examples/python/form-intent.json` | JSON contract emitted by the Python form intent example and validated by the core DSL parser | `Panel`, `VBox`, `TextInput`, `StatusStrip`, `Button` |
 | `examples/theme-demo.toml` | Theme preset smoke demo | `Panel`, `Label`, `Divider` |
 | `examples/showcase-layout.toml` | Richer terminal showcase layout | `Panel`, `VBox`, `HBox`, `Label`, `Divider` |
 
@@ -46,6 +51,10 @@ cargo run -p neotui-cli -- check examples/cockpit-showcase.toml
 cargo run -p neotui-cli -- check examples/tron-hud.toml
 cargo run -p neotui-cli -- check examples/clinic-queue.toml
 cargo run -p neotui-cli -- check examples/visual-system-showcase.toml
+cargo run -p neotui-cli -- check examples/http-dashboard.toml
+cargo run -p neotui-cli -- check examples/form-intent.toml
+cargo run -p neotui-cli -- check examples/embedded-device-control.toml
+cargo run -p neotui-cli -- check examples/python/form-intent.json
 cargo run -p neotui-cli -- check examples/theme-demo.toml
 cargo run -p neotui-cli -- check examples/showcase-layout.toml
 ```
@@ -70,6 +79,9 @@ cargo run -p neotui-cli -- run examples/cockpit-showcase.toml
 cargo run -p neotui-cli -- run examples/tron-hud.toml
 cargo run -p neotui-cli -- run examples/clinic-queue.toml
 cargo run -p neotui-cli -- run examples/visual-system-showcase.toml
+cargo run -p neotui-cli -- run examples/http-dashboard.toml
+cargo run -p neotui-cli -- run examples/form-intent.toml
+cargo run -p neotui-cli -- run examples/embedded-device-control.toml
 cargo run -p neotui-cli -- run examples/showcase-layout.toml
 ```
 
@@ -91,6 +103,18 @@ For the primary visual demo flow, see `docs/showcase.md`.
 For reusable composition guidance, see `docs/layout-patterns.md`.
 
 For focus, scroll and activation behavior, see `docs/interactions.md`.
+
+For the form-driven action fixture, run `python3 scripts/mock-http-backend.py`, then run `examples/form-intent.toml`. Editing the `TextInput` and pressing `Submit Incident` posts a JSON body whose `summary` field is rendered from `$forms.incident.summary`; the mock backend prints the received `ack payload`.
+
+For the embedded device control panel, run `python3 scripts/mock-http-backend.py`, then run `examples/embedded-device-control.toml`. The app polls `/device/status`, renders telemetry and interface state, lets you edit `hostname` and `mode`, and posts dynamic JSON payloads to `/device/apply` or `/device/restart`; the mock backend prints each `device action` payload for smoke verification.
+
+For an automated pre-smoke check of the embedded device app and mock backend, run `bash scripts/test-embedded-device.sh`.
+
+For the underlying form/action contract, see `docs/form-intent.md`.
+
+The same form/action screen is available through the Python API in `examples/python/form_intent.py`. It builds the app with Python objects, validates it through `check(app)`, then runs the serialized app through the same CLI runtime.
+
+For Python builders, validation helpers and native extension verification, see `docs/python-api.md`.
 
 For reusable starter apps built from the same DSL, see `docs/templates.md`.
 

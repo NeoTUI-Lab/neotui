@@ -46,12 +46,14 @@ PowerShell helpers are available for the same checks:
 ```powershell
 .\scripts\build.ps1
 .\scripts\test.ps1
+.\scripts\test-python.ps1
 ```
 
 Expected outcome:
 
 - The workspace compiles.
 - The test suite exits successfully.
+- The Python package contract tests pass when Python or `uv` is available.
 
 ## 4. Validate Example DSL
 
@@ -148,6 +150,56 @@ For the Visual System 1.0 reference composition:
 cargo run -p neotui-cli -- run examples/visual-system-showcase.toml
 ```
 
+For the HTTP data-source intent fixture, run a local JSON backend on `127.0.0.1:7878/status`:
+
+```bash
+python3 scripts/mock-http-backend.py
+```
+
+Expected JSON shape:
+
+```json
+{
+  "summary": "backend ready",
+  "health": "success",
+  "requests": 128,
+  "cpu": 42,
+  "latency": [18, 21, 19, 24],
+  "queue": ["ingest", "render", "ship"]
+}
+```
+
+In another terminal, run:
+
+```bash
+cargo run -p neotui-cli -- check examples/http-dashboard.toml
+cargo run -p neotui-cli -- run examples/http-dashboard.toml
+```
+
+The HTTP dashboard also includes a declarative action. Press `Tab` until `Refresh Now` is focused, then press `Enter`; the button posts to the mock backend, exposes its lifecycle through `$actions.refresh_now.$status`, and refreshes the `ops` data source after success.
+
+For the form-driven action fixture, keep the same mock backend running and start:
+
+```bash
+cargo run -p neotui-cli -- check examples/form-intent.toml
+cargo run -p neotui-cli -- run examples/form-intent.toml
+```
+
+Press `Tab` to focus the input, edit the incident summary, then focus `Submit Incident` and press `Enter`. The action body uses `$forms.incident.summary`, so the mock backend should print an `ack payload` line containing the edited summary.
+
+The form/action contract is documented in `docs/form-intent.md`.
+
+## 6. Try the Python API Form Fixture
+
+The Python package can build the same form-driven app without hand-writing TOML:
+
+```bash
+./scripts/test-python.sh
+PYTHONPATH=python/neotui-py/src python examples/python/form_intent.py
+```
+
+The example validates the Python-built app with `check(app)` and then launches it through the same CLI runtime. Use the mock backend from the previous section to see the submitted `ack payload`.
+
 See `docs/examples.md` for the full official example catalog.
 
 For reusable layout patterns and small fixtures, see `docs/layout-patterns.md`.
@@ -172,7 +224,7 @@ The complete demo checklist lives in `docs/showcase.md`.
 
 For local Linux installation after the first run succeeds, see `docs/linux-install.md`.
 
-## 6. Inspect Runtime Readiness
+## 7. Inspect Runtime Readiness
 
 ```bash
 cargo run -p neotui-cli -- doctor
@@ -185,7 +237,7 @@ Expected outcome:
 
 If GUI launch fails, run `doctor` first and check the `gui_*` fields before retrying.
 
-## 7. Optional Debug Tracing
+## 8. Optional Debug Tracing
 
 ```bash
 NEOTUI_DEBUG=1 cargo run -p neotui-cli -- check examples/hello.toml
@@ -196,7 +248,7 @@ Expected outcome:
 - Extra subsystem diagnostics may be printed.
 - Logs should include technical metadata only, not full component text payloads.
 
-## 8. Optional Baseline Benchmarks
+## 9. Optional Baseline Benchmarks
 
 ```bash
 cargo test -p neotui-core --test benchmarks -- --ignored --nocapture

@@ -499,6 +499,237 @@ Backlog executavel em formato **epicos -> user stories -> tasks**, alinhado ao d
 
 ---
 
+## EPIC-023 - Architecture governance
+
+**Objetivo:** manter as decisoes arquiteturais principais versionadas e deixar claro qual e o proximo eixo de produto apos o Visual System TUI 1.0.
+
+### US-023.1 (P1) - Architecture Decision Records baseline
+
+- TASK-023.1.1: criar `docs/adr/` com indice, status e template.
+- TASK-023.1.2: registrar ADRs aceitos para runtime terminal-first com GUI GTK/VTE embutida, APIs core backend-neutral, DSL intermediaria via `ComponentSpec` e Visual System 1.0.
+- TASK-023.1.3: ligar o indice de ADRs a documentacao principal.
+
+### US-023.2 (TBD) - Definir proximo epico de produto
+
+- TASK-023.2.1: escolher o proximo foco de roadmap, por exemplo animation/tick layer, showcases reais, expansao CLI ou integracao Python.
+- TASK-023.2.2: registrar a decisao de produto antes de iniciar implementacao.
+
+---
+
+## EPIC-024 - TUI Intent Layer: HTTP Data Sources
+
+**Objetivo:** permitir que telas NeoTUI declarem intencao de consumo de backends HTTP, atualizando widgets com dados vivos sem acoplar rede aos widgets ou ao renderer.
+
+### US-024.1 (P1) - Data source DSL contract
+
+- TASK-024.1.1: adicionar `data.sources` em TOML/JSON.
+- TASK-024.1.2: validar `id`, `kind`, `url`, `method`, `headers`, `body`, `timeout_ms`, `refresh_ms` e bindings.
+- TASK-024.1.3: rejeitar headers sensiveis literais quando marcados como `secret`.
+
+### US-024.2 (P1) - HTTP backend worker
+
+- TASK-024.2.1: adicionar feature opcional `http` com `ureq`.
+- TASK-024.2.2: implementar worker blocking com metodos `GET`, `POST`, `PUT`, `PATCH` e `DELETE`.
+- TASK-024.2.3: resolver headers por env refs sem logar segredos.
+
+### US-024.3 (P1) - Runtime integration and refresh
+
+- TASK-024.3.1: disparar requests iniciais e refresh por tick.
+- TASK-024.3.2: atualizar `StateStore` com `loading`, `ready` e `error`.
+- TASK-024.3.3: manter input/render sem bloquear enquanto requests estao em andamento.
+
+### US-024.4 (P1) - Widget data bindings
+
+- TASK-024.4.1: resolver `text_from`, `value_from`, `items_from`, `values_from`, `rows_from` e `status_from`.
+- TASK-024.4.2: aplicar bindings antes da instanciacao de componentes.
+- TASK-024.4.3: renderizar fallbacks previsiveis para loading, erro e dado ausente.
+
+### US-024.5 (P1) - Backend showcase
+
+- TASK-024.5.1: criar `examples/http-dashboard.toml`.
+- TASK-024.5.2: documentar uso com backend local/mock.
+- TASK-024.5.3: cobrir parse, validacao, bindings e runtime HTTP com testes.
+
+### US-024.6 (P1) - Verification in functional Rust environment
+
+- TASK-024.6.1: rodar `cargo check --workspace` em Linux/WSL ou Windows com Visual Studio Build Tools.
+- TASK-024.6.2: rodar `cargo test --workspace`.
+- TASK-024.6.3: validar `cargo run -p neotui-cli -- check examples/http-dashboard.toml`.
+- TASK-024.6.4: fechar EPIC-024 no controle de execucao apos verificacao completa.
+
+---
+
+## EPIC-025 - Data Lifecycle 1.0
+
+**Objetivo:** transformar o consumo HTTP inicial em um ciclo de dados robusto para frontend TUI, com cache, stale state, retry/backoff e protecao contra respostas antigas.
+
+### US-025.1 (P1) - Cache and stale state
+
+- TASK-025.1.1: preservar ultimo valor valido por data source.
+- TASK-025.1.2: publicar `stale` durante refresh quando ja existe dado em cache.
+- TASK-025.1.3: manter dados cacheados visiveis quando um refresh falha.
+
+### US-025.2 (P1) - Retry and backoff
+
+- TASK-025.2.1: aplicar `retry_count` dentro do worker HTTP.
+- TASK-025.2.2: aplicar `retry_backoff_ms` sem bloquear input/render.
+- TASK-025.2.3: documentar retry no exemplo HTTP.
+
+### US-025.3 (P1) - Stale response protection
+
+- TASK-025.3.1: atribuir generation id por request.
+- TASK-025.3.2: descartar respostas atrasadas de geracoes antigas.
+- TASK-025.3.3: registrar a decisao em ADR.
+
+### US-025.4 (P1) - Visual lifecycle status mapping
+
+- TASK-025.4.1: mapear lifecycle status para status visual ao resolver `status_from`.
+- TASK-025.4.2: manter widgets puros, recebendo apenas props normais.
+- TASK-025.4.3: cobrir mapping por testes.
+
+### US-025.5 (P1) - Verification in functional Rust environment
+
+- TASK-025.5.1: validar backend mock com `curl http://127.0.0.1:7878/status`.
+- TASK-025.5.2: rodar `cargo test -p neotui-core --features http`.
+- TASK-025.5.3: rodar `cargo test --workspace`.
+- TASK-025.5.4: fechar EPIC-024/025 no controle de execucao apos verificacao.
+
+---
+
+## EPIC-026 - Declarative Actions
+
+**Objetivo:** permitir que componentes interativos emitam acoes declarativas, incluindo mutacoes HTTP, com ciclo de loading, sucesso, erro e atualizacao de estado.
+
+### US-026.1 (P1) - Declarative action DSL
+
+- TASK-026.1.1: adicionar `[[actions]]` top-level com `kind = "http"`.
+- TASK-026.1.2: validar `id`, `url`, `method`, headers, body, retry e `refresh_sources`.
+- TASK-026.1.3: rejeitar referencias a actions/data sources inexistentes.
+
+### US-026.2 (P1) - Widget event bindings
+
+- TASK-026.2.1: adicionar `on_click` para `Button`.
+- TASK-026.2.2: adicionar `on_select` para `List`.
+- TASK-026.2.3: emitir `Command::Action(id)` sem acoplar widgets a HTTP.
+
+### US-026.3 (P1) - HTTP action runtime
+
+- TASK-026.3.1: executar action HTTP em worker thread.
+- TASK-026.3.2: aplicar retry/backoff sem bloquear input/render.
+- TASK-026.3.3: ignorar triggers duplicados enquanto action esta em voo.
+
+### US-026.4 (P1) - Mutation refresh lifecycle
+
+- TASK-026.4.1: disparar refresh de data sources listados em `refresh_sources` apos sucesso.
+- TASK-026.4.2: manter erro de action sem apagar dados existentes.
+- TASK-026.4.3: expor lifecycle de action para bindings como `$actions.<id>.$status`.
+- TASK-026.4.4: cobrir fluxo por testes e exemplo.
+
+### US-026.5 (P1) - Verification in functional Rust environment
+
+- TASK-026.5.1: rodar testes focados de action runtime HTTP.
+- TASK-026.5.2: rodar `cargo test -p neotui-core --features http`.
+- TASK-026.5.3: rodar `cargo test --workspace`.
+- TASK-026.5.4: validar `neotui check examples/http-dashboard.toml`.
+- TASK-026.5.5: validar o smoke manual com backend mock, `Refresh Now` e refresh de `ops`.
+
+---
+
+## EPIC-027 - Form Intent and Action Payloads
+
+**Objetivo:** permitir que TUIs capturem input do usuario de forma declarativa, mantenham estado de formulario e usem esse estado para montar payloads de actions sem acoplar widgets a HTTP.
+
+### US-027.1 (P1) - Product and architecture definition
+
+- TASK-027.1.1: selecionar forms/payloads como o proximo epic apos declarative actions.
+- TASK-027.1.2: documentar o contrato de estado de formulario, bindings e payload rendering em ADR.
+- TASK-027.1.3: dividir o epic em USs executaveis e manter EPIC-026 fechado no tracking.
+
+### US-027.2 (P1) - Form state model and DSL contract
+
+- TASK-027.2.1: adicionar um `FormStore` backend-neutral ao estado runtime.
+- TASK-027.2.2: definir paths de formulario, por exemplo `$forms.<form_id>.<field_id>`.
+- TASK-027.2.3: validar declaracoes de forms/campos sem exigir runtime HTTP.
+
+### US-027.3 (P1) - Input widgets and event intent
+
+- TASK-027.3.1: adicionar o primeiro widget de input textual com foco, cursor e edicao basica.
+- TASK-027.3.2: emitir comandos de atualizacao de form state sem acoplar widgets a actions.
+- TASK-027.3.3: cobrir navegacao, edicao, clipping e snapshots do input.
+
+### US-027.4 (P1) - Action payload templating
+
+- TASK-027.4.1: permitir que HTTP actions renderizem body a partir de valores de form state.
+- TASK-027.4.2: manter headers/env secrets seguros e sem interpolacao que vaze valores.
+- TASK-027.4.3: cobrir payload rendering, valores ausentes e erros acionaveis por testes.
+
+### US-027.5 (P1) - Validation and submit lifecycle
+
+- TASK-027.5.1: validar campos requeridos antes de disparar submit.
+- TASK-027.5.2: expor erro de validacao como estado bindavel para widgets normais.
+- TASK-027.5.3: garantir que submit invalido nao dispare HTTP action.
+
+### US-027.6 (P1) - Form-driven dashboard example and verification
+
+- TASK-027.6.1: criar exemplo com input, submit, action payload dinamico e refresh de data source.
+- TASK-027.6.2: documentar o fluxo no quickstart/examples.
+- TASK-027.6.3: rodar testes core com feature HTTP, workspace tests e `neotui check` do exemplo.
+
+---
+
+## EPIC-028 - Python API Parity for Current DSL
+
+**Objetivo:** alinhar a API Python minima ao contrato DSL atual, permitindo que apps Python declarem widgets ricos, data sources, actions e forms sem depender de TOML manual e sem acoplar componentes a HTTP.
+
+### US-028.1 (P1) - Current DSL builders and serialization
+
+- TASK-028.1.1: expor builders Python para widgets ricos e `TextInput`.
+- TASK-028.1.2: adicionar modelos Python para data sources HTTP, actions HTTP e forms.
+- TASK-028.1.3: serializar `App` para o mesmo formato neutro aceito pelo core.
+- TASK-028.1.4: preservar callbacks Python locais e diferenciar bindings declarativos de action.
+- TASK-028.1.5: cobrir builders e roundtrip por testes Python.
+
+### US-028.2 (P1) - Python check bridge
+
+- TASK-028.2.1: adicionar helper Python para validar `App` via `neotui check`.
+- TASK-028.2.2: retornar erros acionaveis sem expor payloads sensiveis por default.
+- TASK-028.2.3: cobrir sucesso e falha com testes que mockam subprocess.
+
+### US-028.3 (P1) - Python examples and documentation
+
+- TASK-028.3.1: criar exemplo Python equivalente ao form-intent dashboard.
+- TASK-028.3.2: documentar builders de widgets ricos, forms e actions.
+- TASK-028.3.3: linkar a API Python no quickstart e catalogo de exemplos.
+
+### US-028.4 (P1) - Verification in functional Python environment
+
+- TASK-028.4.1: rodar `pytest` no pacote Python.
+- TASK-028.4.2: rodar `maturin develop` ou build equivalente quando PyO3 estiver disponivel.
+- TASK-028.4.3: validar um app Python serializado com `neotui check`.
+- TASK-028.4.4: fechar EPIC-028 no controle de execucao apos verificacao completa.
+
+---
+
+## EPIC-029 - Curated Embedded Device Control App
+
+**Objetivo:** criar um exemplo de aplicacao completa que posicione NeoTUI para controle e diagnostico de dispositivos Linux embarcados/headless, provando telemetria, configuracao via formulario, actions declarativas e backend mock em um fluxo unico.
+
+### US-029.1 (P1) - Embedded device app fixture
+
+- TASK-029.1.1: criar `examples/embedded-device-control.toml` com telemetria, tabela de interfaces, inputs de configuracao e actions.
+- TASK-029.1.2: conectar o exemplo ao backend mock com `/device/status`, `/device/apply` e `/device/restart`.
+- TASK-029.1.3: documentar execucao, validacao e narrativa de produto.
+- TASK-029.1.4: cobrir parse/check do exemplo em testes core/CLI.
+
+### US-029.2 (P1) - End-to-end smoke
+
+- TASK-029.2.1: validar `neotui check examples/embedded-device-control.toml`.
+- TASK-029.2.2: rodar app contra `scripts/mock-http-backend.py`.
+- TASK-029.2.3: editar `hostname` ou `mode`, disparar uma action e confirmar o payload impresso pelo backend.
+- TASK-029.2.4: fechar EPIC-029 no controle de execucao apos verificacao completa.
+
+---
+
 ## Ordem sugerida de execucao
 
 1. EPIC-000
@@ -524,6 +755,13 @@ Backlog executavel em formato **epicos -> user stories -> tasks**, alinhado ao d
 21. EPIC-020
 22. EPIC-021
 23. EPIC-022
+24. EPIC-023
+25. EPIC-024
+26. EPIC-025
+27. EPIC-026
+28. EPIC-027
+29. EPIC-028
+30. EPIC-029
 
 ---
 

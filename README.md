@@ -12,6 +12,10 @@ Documento de arquitetura e decisão de stack para o MVP.
 - Templates de aplicacao: `docs/templates.md`
 - Guia de design TUI: `docs/tui-design.md`
 - Sistema visual TUI 1.0: `docs/visual-system.md`
+- Form intent e payloads dinamicos: `docs/form-intent.md`
+- API Python: `docs/python-api.md`
+- Exemplo Embedded Device Control Panel: `docs/embedded-device-control.md`
+- Registros de decisoes arquiteturais: `docs/adr/README.md`
 - Roteiro do showcase visual: `docs/showcase.md`
 - Instalacao local Linux: `docs/linux-install.md`
 - Checklist de release manual: `docs/release.md`
@@ -41,7 +45,7 @@ Para uma demonstracao curta do MVP, use `docs/showcase.md` ou rode `.\scripts\sh
 
 Para validar uma instalacao local Linux, rode `./scripts/package-linux.sh` e siga `docs/linux-install.md`.
 
-Para preparar um artefato MVP compartilhavel, siga `docs/release.md`; `.deb` e AppImage continuam experimentais.
+Para gerar um pacote `.deb` instalavel (CLI + GUI), rode `./scripts/package-deb.sh` em Linux; veja `docs/release.md`. AppImage continua nao implementado e a licenca do pacote ainda precisa ser definida.
 
 ## 0. Design space e hipóteses antes da stack
 
