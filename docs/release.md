@@ -109,6 +109,35 @@ dist/neotui-linux/bin/neotui check templates/operational-dashboard.toml
 dist/neotui-linux/bin/neotui run examples/showcase-layout.toml
 ```
 
+## Build an Installable .deb (Debian/Ubuntu)
+
+For an installable artifact instead of a staged directory, build a Debian
+package with `cargo-deb`:
+
+```bash
+./scripts/package-deb.sh
+```
+
+This builds the workspace in release mode, bundles `neotui` and `neotui-gui`
+into a single package with the GTK4/VTE runtime dependencies declared, and emits
+the `.deb` under `target/debian/`.
+
+Inspect and install:
+
+```bash
+dpkg-deb --info target/debian/neotui_*.deb
+dpkg-deb --contents target/debian/neotui_*.deb
+sudo apt install ./target/debian/neotui_*.deb
+neotui --version && neotui doctor
+```
+
+Packaging metadata lives in `[package.metadata.deb]` in
+`crates/neotui-cli/Cargo.toml`.
+
+> License gate: the package currently declares the placeholder
+> `LicenseRef-Proprietary`. Set the real SPDX license (and add a `LICENSE` file)
+> in `crates/neotui-cli/Cargo.toml` before distributing the `.deb` publicly.
+
 ## Sharing the Artifact
 
 For MVP review, share the staged directory as a compressed archive:
@@ -128,7 +157,8 @@ Before sharing, include:
 
 ## Known Experimental Areas
 
-- `.deb` packaging is not implemented yet.
+- `.deb` packaging is available via `./scripts/package-deb.sh` but still requires
+  choosing the real project license (placeholder `LicenseRef-Proprietary`).
 - AppImage packaging is not implemented yet.
 - GUI launch depends on local GTK/VTE runtime and graphical-session readiness.
 - The staged archive is intended for developer/MVP validation only.

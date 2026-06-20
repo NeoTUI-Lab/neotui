@@ -2,10 +2,37 @@
 name = "neotui-cli"
 version = "0.1.0"
 edition = "2021"
+description = "NeoTUI command-line interface: run, check and diagnose terminal-first TUI apps"
+authors = ["Eduardo <eduardo.x.aguiar@gmail.com>"]
+# TODO(release): confirm the project license before public distribution.
+# `LicenseRef-Proprietary` is an SPDX custom reference meaning "license not yet
+# chosen / all rights reserved". Replace with the real SPDX id (e.g. "MIT",
+# "Apache-2.0" or "MIT OR Apache-2.0") and add a LICENSE file once decided.
+license = "LicenseRef-Proprietary"
 
 [[bin]]
 name = "neotui"
 path = "src/main.rs"
+
+# Debian packaging metadata consumed by `cargo deb` (see scripts/package-deb.sh).
+# Bundles both the `neotui` CLI and the `neotui-gui` launcher into a single
+# package and declares the GTK4/VTE runtime dependencies for the GUI path.
+[package.metadata.deb]
+name = "neotui"
+section = "utils"
+priority = "optional"
+depends = "$auto, libgtk-4-1, libvte-2.91-gtk4-0"
+extended-description = """
+NeoTUI is a terminal-first, declarative TUI framework. This package installs the
+`neotui` CLI (run/check/doctor) and the `neotui-gui` embedded GTK/VTE launcher
+used by `neotui run <file> --gui`.
+"""
+assets = [
+    ["target/release/neotui", "usr/bin/", "755"],
+    ["target/release/neotui-gui", "usr/bin/", "755"],
+    ["README.md", "usr/share/doc/neotui/README.md", "644"],
+    ["docs/quickstart.md", "usr/share/doc/neotui/quickstart.md", "644"],
+]
 
 [dependencies]
 neotui-core = { path = "../neotui-core", features = ["http"] }
