@@ -1,0 +1,346 @@
+schema_version = "0.1"
+theme = "redline"
+
+[[forms]]
+id = "device"
+
+[[forms.fields]]
+id = "hostname"
+kind = "text"
+initial = "edge-gateway-07"
+required = true
+
+[[forms.fields]]
+id = "mode"
+kind = "text"
+initial = "maintenance-window"
+required = true
+
+[[data.sources]]
+id = "device"
+kind = "http"
+url = "http://127.0.0.1:7878/device/status"
+method = "GET"
+timeout_ms = 2000
+refresh_ms = 4000
+retry_count = 2
+retry_backoff_ms = 250
+
+[[actions]]
+id = "apply_device_config"
+kind = "http"
+url = "http://127.0.0.1:7878/device/apply"
+method = "POST"
+refresh_sources = ["device"]
+
+[actions.body]
+json = { hostname = "$forms.device.hostname", mode = "$forms.device.mode", intent = "apply_config" }
+
+[[actions]]
+id = "restart_agent"
+kind = "http"
+url = "http://127.0.0.1:7878/device/restart"
+method = "POST"
+refresh_sources = ["device"]
+
+[actions.body]
+json = { hostname = "$forms.device.hostname", mode = "$forms.device.mode", intent = "restart_agent" }
+
+[root]
+kind = "Panel"
+id = "device-root"
+
+[root.props]
+title = "Embedded Device Control Panel"
+variant = "data"
+chrome = "technical"
+density = "spacious"
+footer_left = "edge-gateway-07"
+footer_right = "SSH / local console"
+
+[[root.children]]
+kind = "VBox"
+id = "device-main"
+
+[root.children.props]
+gap = 1
+align = "stretch"
+
+[[root.children.children]]
+kind = "StatusStrip"
+id = "device-health"
+
+[root.children.children.props]
+text = "waiting for embedded device telemetry..."
+text_from = "device.summary"
+status = "info"
+status_from = "device.health"
+height = 1
+
+[[root.children.children]]
+kind = "HBox"
+id = "device-overview"
+
+[root.children.children.props]
+gap = 1
+align = "stretch"
+height = 7
+
+[[root.children.children.children]]
+kind = "VBox"
+id = "device-metrics"
+
+[root.children.children.children.props]
+gap = 1
+width_pct = 36
+
+[[root.children.children.children.children]]
+kind = "Metric"
+id = "device-uptime"
+
+[root.children.children.children.children.props]
+title = "Uptime"
+value = "--"
+value_from = "device.uptime"
+status = "info"
+status_from = "device.health"
+height = 2
+
+[[root.children.children.children.children]]
+kind = "Gauge"
+id = "device-cpu"
+
+[root.children.children.children.children.props]
+title = "CPU"
+value = 0
+value_from = "device.cpu"
+min = 0
+max = 100
+height = 2
+
+[[root.children.children.children.children]]
+kind = "Gauge"
+id = "device-temp"
+
+[root.children.children.children.children.props]
+title = "Board Temp"
+value = 0
+value_from = "device.temperature"
+min = 20
+max = 90
+height = 2
+
+[[root.children.children.children]]
+kind = "VBox"
+id = "device-telemetry"
+
+[root.children.children.children.props]
+gap = 1
+width_pct = 64
+
+[[root.children.children.children.children]]
+kind = "Sparkline"
+id = "device-load-history"
+
+[root.children.children.children.children.props]
+title = "Load History"
+values = []
+values_from = "device.load_history"
+height = 2
+
+[[root.children.children.children.children]]
+kind = "Table"
+id = "device-interfaces"
+
+[root.children.children.children.children.props]
+height = 4
+columns = [
+  { key = "name", title = "Iface", width = 8 },
+  { key = "state", title = "State", width = 8 },
+  { key = "rx", title = "RX", width = 8, align = "right" },
+  { key = "tx", title = "TX", width = 8, align = "right" }
+]
+rows = []
+rows_from = "device.interfaces"
+
+[[root.children.children]]
+kind = "HBox"
+id = "device-control-row"
+
+[root.children.children.props]
+gap = 1
+align = "stretch"
+height = 12
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "device-config-panel"
+
+[root.children.children.children.props]
+title = "Runtime Configuration"
+variant = "data"
+chrome = "technical"
+width_pct = 48
+
+[[root.children.children.children.children]]
+kind = "VBox"
+id = "device-config-form"
+
+[root.children.children.children.children.props]
+gap = 0
+
+[[root.children.children.children.children.children]]
+kind = "Label"
+id = "hostname-label"
+
+[root.children.children.children.children.children.props]
+text = "Hostname"
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "TextInput"
+id = "hostname-input"
+
+[root.children.children.children.children.children.props]
+form = "device"
+field = "hostname"
+value_from = "$forms.device.hostname"
+placeholder = "edge-gateway-07"
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "Label"
+id = "mode-label"
+
+[root.children.children.children.children.children.props]
+text = "Operating mode"
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "TextInput"
+id = "mode-input"
+
+[root.children.children.children.children.children.props]
+form = "device"
+field = "mode"
+value_from = "$forms.device.mode"
+placeholder = "maintenance-window"
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "HBox"
+id = "device-actions"
+
+[root.children.children.children.children.children.props]
+gap = 2
+height = 1
+
+[[root.children.children.children.children.children.children]]
+kind = "Button"
+id = "apply-config"
+
+[root.children.children.children.children.children.children.props]
+text = "Apply Config"
+variant = "primary"
+on_click = "apply_device_config"
+width = 20
+
+[[root.children.children.children.children.children.children]]
+kind = "Button"
+id = "restart-agent"
+
+[root.children.children.children.children.children.children.props]
+text = "Restart Agent"
+variant = "danger"
+on_click = "restart_agent"
+width = 20
+
+[[root.children.children.children]]
+kind = "Panel"
+id = "device-ops-panel"
+
+[root.children.children.children.props]
+title = "Operations"
+variant = "data"
+chrome = "technical"
+width_pct = 52
+
+[[root.children.children.children.children]]
+kind = "VBox"
+id = "device-ops"
+
+[root.children.children.children.children.props]
+gap = 1
+
+[[root.children.children.children.children.children]]
+kind = "StatusStrip"
+id = "apply-status"
+
+[root.children.children.children.children.children.props]
+text = "apply idle"
+text_from = "$actions.apply_device_config.$status"
+status = "info"
+status_from = "$actions.apply_device_config.$status"
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "StatusStrip"
+id = "restart-status"
+
+[root.children.children.children.children.children.props]
+text = "restart idle"
+text_from = "$actions.restart_agent.$status"
+status = "info"
+status_from = "$actions.restart_agent.$status"
+height = 1
+
+[[root.children.children.children.children.children]]
+kind = "List"
+id = "device-events"
+
+[root.children.children.children.children.children.props]
+title = "Recent Device Events"
+items = []
+items_from = "device.events"
+height = 5
+
+[[root.children.children]]
+kind = "HBox"
+id = "device-footer"
+
+[root.children.children.props]
+gap = 2
+height = 1
+
+[[root.children.children.children]]
+kind = "KeyValueRow"
+id = "firmware-version"
+
+[root.children.children.children.props]
+key = "Firmware"
+value = "--"
+value_from = "device.firmware"
+connector = "."
+width_pct = 34
+
+[[root.children.children.children]]
+kind = "KeyValueRow"
+id = "network-address"
+
+[root.children.children.children.props]
+key = "IP"
+value = "--"
+value_from = "device.ip"
+connector = "."
+width_pct = 33
+
+[[root.children.children.children]]
+kind = "KeyValueRow"
+id = "power-profile"
+
+[root.children.children.children.props]
+key = "Power"
+value = "--"
+value_from = "device.power"
+connector = "."
+width_pct = 33

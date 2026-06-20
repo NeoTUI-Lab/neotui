@@ -1,0 +1,83 @@
+{
+  "schema_version": "0.1",
+  "root": {
+    "kind": "Panel",
+    "props": {
+      "title": "Form Intent"
+    },
+    "children": [
+      {
+        "kind": "VBox",
+        "props": {
+          "gap": 1
+        },
+        "children": [
+          {
+            "kind": "Label",
+            "props": {
+              "text": "Initial form state"
+            }
+          },
+          {
+            "kind": "TextInput",
+            "props": {
+              "form": "incident",
+              "field": "summary",
+              "value_from": "$forms.incident.summary",
+              "placeholder": "Describe the incident"
+            }
+          },
+          {
+            "kind": "TextBlock",
+            "props": {
+              "text": "The input above is backed by form state."
+            }
+          },
+          {
+            "kind": "StatusStrip",
+            "props": {
+              "text": "idle",
+              "status": "info",
+              "text_from": "$actions.submit_incident.$status",
+              "status_from": "$actions.submit_incident.$status"
+            }
+          },
+          {
+            "kind": "Button",
+            "props": {
+              "text": "Submit Incident",
+              "on_click": "submit_incident"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "theme": "minimal",
+  "actions": [
+    {
+      "id": "submit_incident",
+      "kind": "http",
+      "url": "http://127.0.0.1:7878/ack",
+      "method": "POST",
+      "body": {
+        "json": {
+          "summary": "$forms.incident.summary"
+        }
+      }
+    }
+  ],
+  "forms": [
+    {
+      "id": "incident",
+      "fields": [
+        {
+          "id": "summary",
+          "kind": "text",
+          "initial": "Disk full on db-primary",
+          "required": true
+        }
+      ]
+    }
+  ]
+}

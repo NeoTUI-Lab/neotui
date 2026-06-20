@@ -1,0 +1,110 @@
+schema_version = "0.1"
+theme = "redline"
+
+[[data.sources]]
+id = "ops"
+kind = "http"
+url = "http://127.0.0.1:7878/status"
+method = "GET"
+timeout_ms = 2000
+refresh_ms = 5000
+retry_count = 2
+retry_backoff_ms = 250
+
+[[actions]]
+id = "refresh_now"
+kind = "http"
+url = "http://127.0.0.1:7878/ack"
+method = "POST"
+refresh_sources = ["ops"]
+
+[actions.body]
+json = { intent = "refresh" }
+
+[root]
+kind = "Panel"
+
+[root.props]
+title = "HTTP Backend Intent"
+variant = "data"
+chrome = "technical"
+density = "spacious"
+
+[[root.children]]
+kind = "VBox"
+
+[root.children.props]
+gap = 1
+
+[[root.children.children]]
+kind = "StatusStrip"
+
+[root.children.children.props]
+text = "loading backend..."
+text_from = "ops.summary"
+status = "info"
+status_from = "ops.$status"
+
+[[root.children.children]]
+kind = "HBox"
+
+[root.children.children.props]
+gap = 2
+
+[[root.children.children.children]]
+kind = "Metric"
+
+[root.children.children.children.props]
+title = "Requests"
+value = "0"
+value_from = "ops.requests"
+status = "info"
+status_from = "ops.health"
+width = 18
+
+[[root.children.children.children]]
+kind = "Gauge"
+
+[root.children.children.children.props]
+title = "CPU"
+value = 0
+value_from = "ops.cpu"
+min = 0
+max = 100
+width = 28
+
+[[root.children.children]]
+kind = "Sparkline"
+
+[root.children.children.props]
+title = "Latency"
+values = []
+values_from = "ops.latency"
+height = 2
+
+[[root.children.children]]
+kind = "List"
+
+[root.children.children.props]
+title = "Queue"
+items = []
+items_from = "ops.queue"
+height = 5
+
+[[root.children.children]]
+kind = "Button"
+
+[root.children.children.props]
+text = "Refresh Now"
+variant = "primary"
+on_click = "refresh_now"
+height = 1
+
+[[root.children.children]]
+kind = "StatusStrip"
+
+[root.children.children.props]
+text = "action idle"
+text_from = "$actions.refresh_now.$status"
+status = "info"
+status_from = "$actions.refresh_now.$status"

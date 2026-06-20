@@ -1,0 +1,69 @@
+schema_version = "0.1"
+theme = "minimal"
+
+[[forms]]
+id = "incident"
+
+[[forms.fields]]
+id = "summary"
+kind = "text"
+initial = "Disk full on db-primary"
+required = true
+
+[[actions]]
+id = "submit_incident"
+kind = "http"
+url = "http://127.0.0.1:7878/ack"
+method = "POST"
+
+[actions.body]
+json = { summary = "$forms.incident.summary" }
+
+[root]
+kind = "Panel"
+
+[root.props]
+title = "Form Intent"
+
+[[root.children]]
+kind = "VBox"
+
+[root.children.props]
+gap = 1
+
+[[root.children.children]]
+kind = "Label"
+
+[root.children.children.props]
+text = "Initial form state"
+
+[[root.children.children]]
+kind = "TextInput"
+
+[root.children.children.props]
+form = "incident"
+field = "summary"
+value_from = "$forms.incident.summary"
+placeholder = "Describe the incident"
+
+[[root.children.children]]
+kind = "TextBlock"
+
+[root.children.children.props]
+text = "The input above is backed by form state."
+
+[[root.children.children]]
+kind = "StatusStrip"
+
+[root.children.children.props]
+text = "idle"
+status = "info"
+text_from = "$actions.submit_incident.$status"
+status_from = "$actions.submit_incident.$status"
+
+[[root.children.children]]
+kind = "Button"
+
+[root.children.children.props]
+text = "Submit Incident"
+on_click = "submit_incident"
