@@ -12,6 +12,7 @@ pub struct Button {
     focused_style: Style,
     focused: bool,
     pressed: bool,
+    on_click: Option<String>,
 }
 
 impl Button {
@@ -30,7 +31,13 @@ impl Button {
             focused_style,
             focused: false,
             pressed: false,
+            on_click: None,
         }
+    }
+
+    pub fn with_on_click(mut self, action_id: impl Into<String>) -> Self {
+        self.on_click = Some(action_id.into());
+        self
     }
 
     pub fn with_variant(mut self, variant: impl Into<String>) -> Self {
@@ -54,9 +61,14 @@ impl Button {
         format!("{left} {} {right}", self.text)
     }
 
-    fn activate(&mut self) -> EventResult {
+    fn activate(&mut self, ctx: &mut EventContext) -> EventResult {
         self.pressed = !self.pressed;
-        EventResult::RequestRender
+        if let Some(action_id) = &self.on_click {
+            ctx.push_action(action_id.clone());
+            EventResult::Command(crate::event::Command::Action(action_id.clone()))
+        } else {
+            EventResult::RequestRender
+        }
     }
 }
 
@@ -90,7 +102,7 @@ impl Component for Button {
         let _ = frame.draw_text_aligned(area.x, y, area.width, &label, style, TextAlign::Center);
     }
 
-    fn on_event(&mut self, _ctx: &mut EventContext, event: &Event) -> EventResult {
+    fn on_event(&mut self, ctx: &mut EventContext, event: &Event) -> EventResult {
         match event {
             Event::FocusGained(id) if *id == self.id => {
                 self.focused = true;
@@ -102,12 +114,12 @@ impl Component for Button {
                 EventResult::RequestRender
             }
             Event::Key(key) if self.focused && matches!(key.code, KeyCode::Enter) => {
-                self.activate()
+                self.activate(ctx)
             }
             Event::Mouse(mouse)
                 if matches!(mouse.kind, MouseEventKind::Down(MouseButton::Left)) =>
             {
-                self.activate()
+                self.activate(ctx)
             }
             _ => EventResult::Ignored,
         }
@@ -152,6 +164,30 @@ mod tests {
                 })
             ),
             EventResult::RequestRender
+        );
+    }
+
+    #[test]
+    fn button_activation_emits_declared_action() {
+        let mut button = Button::new("refresh", "Refresh").with_on_click("refresh_now");
+        let mut ctx = EventContext::default();
+        let _ = button.on_event(&mut ctx, &Event::FocusGained(ComponentId("refresh".into())));
+
+        let result = button.on_event(
+            &mut ctx,
+            &Event::Key(KeyEvent {
+                code: KeyCode::Enter,
+                modifiers: KeyModifiers::default(),
+            }),
+        );
+
+        assert_eq!(
+            result,
+            EventResult::Command(crate::event::Command::Action("refresh_now".into()))
+        );
+        assert_eq!(
+            ctx.commands,
+            vec![crate::event::Command::Action("refresh_now".into())]
         );
     }
 

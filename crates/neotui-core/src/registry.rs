@@ -10,7 +10,7 @@ use crate::theme::Theme;
 use crate::widgets::{
     BigMetric, Button, Divider, DividerOrientation, Gauge, Graph, KeyValueRow, Knob, Label, List,
     Metric, Panel, PanelChrome, PanelDensity, PanelVariant, Spacer, Sparkline, Stack, StackAlign,
-    StackJustify, StatusStrip, Table, TableColumn, TextBlock,
+    StackJustify, StatusStrip, Table, TableColumn, TextBlock, TextInput,
 };
 use tracing::debug;
 
@@ -102,6 +102,18 @@ impl ComponentRegistry {
                     TextBlock::new(id, text).with_style(theme.resolve_style("text_block.default")),
                 ))
             }
+            "TextInput" => {
+                let value = required_string(spec, path, "value")?;
+                let form = required_string(spec, path, "form")?;
+                let field = required_string(spec, path, "field")?;
+                let mut input = TextInput::new(id, value, form, field)
+                    .with_style(theme.resolve_style("text_input.default"))
+                    .with_focused_style(theme.resolve_style("text_input.focused"));
+                if let Some(placeholder) = optional_string(spec, path, "placeholder")? {
+                    input = input.with_placeholder(placeholder);
+                }
+                Ok(Box::new(input))
+            }
             "Button" => {
                 let text = required_string(spec, path, "text")?;
                 let variant = optional_string(spec, path, "variant")?;
@@ -122,6 +134,9 @@ impl ComponentRegistry {
                 if let Some(var) = variant {
                     button = button.with_variant(var);
                 }
+                if let Some(action_id) = optional_string(spec, path, "on_click")? {
+                    button = button.with_on_click(action_id);
+                }
                 Ok(Box::new(button))
             }
             "List" => {
@@ -131,6 +146,9 @@ impl ComponentRegistry {
                     .with_selected_style(theme.resolve_style("list.selected"));
                 if let Some(title) = optional_string(spec, path, "title")? {
                     list = list.with_title(title);
+                }
+                if let Some(action_id) = optional_string(spec, path, "on_select")? {
+                    list = list.with_on_select(action_id);
                 }
                 Ok(Box::new(list))
             }
@@ -1089,6 +1107,9 @@ mod tests {
         let spec = AppSpec {
             schema_version: "0.1".into(),
             theme: Some("minimal".into()),
+            data: None,
+            actions: Vec::new(),
+            forms: Vec::new(),
             root: ComponentSpec {
                 kind: "Panel".into(),
                 id: Some("root-panel".into()),
@@ -1134,6 +1155,9 @@ mod tests {
         let spec = AppSpec {
             schema_version: "0.1".into(),
             theme: Some("redline".into()),
+            data: None,
+            actions: Vec::new(),
+            forms: Vec::new(),
             root: ComponentSpec {
                 kind: "Label".into(),
                 id: Some("alert".into()),
@@ -1169,6 +1193,9 @@ mod tests {
         let spec = AppSpec {
             schema_version: "0.1".into(),
             theme: Some("redline".into()),
+            data: None,
+            actions: Vec::new(),
+            forms: Vec::new(),
             root: ComponentSpec {
                 kind: "VBox".into(),
                 id: Some("box".into()),
@@ -1274,6 +1301,9 @@ mod tests {
         let spec = AppSpec {
             schema_version: "0.1".into(),
             theme: None,
+            data: None,
+            actions: Vec::new(),
+            forms: Vec::new(),
             root: ComponentSpec {
                 kind: "VBox".into(),
                 id: Some("layout".into()),
@@ -1318,6 +1348,9 @@ mod tests {
         let spec = AppSpec {
             schema_version: "0.1".into(),
             theme: None,
+            data: None,
+            actions: Vec::new(),
+            forms: Vec::new(),
             root: ComponentSpec {
                 kind: "VBox".into(),
                 id: Some("layout".into()),
@@ -1358,6 +1391,9 @@ mod tests {
         let spec = AppSpec {
             schema_version: "0.1".into(),
             theme: None,
+            data: None,
+            actions: Vec::new(),
+            forms: Vec::new(),
             root: ComponentSpec {
                 kind: "HBox".into(),
                 id: Some("layout".into()),
@@ -1403,6 +1439,9 @@ mod tests {
         let spec = AppSpec {
             schema_version: "0.1".into(),
             theme: None,
+            data: None,
+            actions: Vec::new(),
+            forms: Vec::new(),
             root: ComponentSpec {
                 kind: "Label".into(),
                 id: None,
@@ -1429,6 +1468,9 @@ mod tests {
         let spec = AppSpec {
             schema_version: "0.1".into(),
             theme: None,
+            data: None,
+            actions: Vec::new(),
+            forms: Vec::new(),
             root: ComponentSpec {
                 kind: "VBox".into(),
                 id: None,
@@ -1452,6 +1494,9 @@ mod tests {
         let spec = AppSpec {
             schema_version: "0.1".into(),
             theme: None,
+            data: None,
+            actions: Vec::new(),
+            forms: Vec::new(),
             root: ComponentSpec {
                 kind: "VBox".into(),
                 id: Some("layout".into()),
@@ -1518,6 +1563,9 @@ mod tests {
         let spec = AppSpec {
             schema_version: "0.1".into(),
             theme: None,
+            data: None,
+            actions: Vec::new(),
+            forms: Vec::new(),
             root: ComponentSpec {
                 kind: "Divider".into(),
                 id: None,

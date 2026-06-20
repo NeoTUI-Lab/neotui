@@ -1,14 +1,19 @@
 // State model
 // Minimal runtime state for focus and dirty tracking
 
+use crate::data::{ActionSnapshot, ActionStore, DataSnapshot, DataStore};
 use crate::event::{ComponentId, ScrollDirection, ScrollEvent};
+use crate::forms::{FormSpec, FormStore};
 use std::collections::{HashMap, HashSet};
 
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct StateStore {
     focused: Option<ComponentId>,
     dirty_components: HashSet<ComponentId>,
     scroll_offsets: HashMap<ComponentId, u16>,
+    data: DataStore,
+    actions: ActionStore,
+    forms: FormStore,
     layout_dirty: bool,
     render_dirty: bool,
 }
@@ -52,6 +57,72 @@ impl StateStore {
 
     pub fn scroll_offset(&self, component_id: &ComponentId) -> u16 {
         self.scroll_offsets.get(component_id).copied().unwrap_or(0)
+    }
+
+    pub fn data(&self) -> &DataStore {
+        &self.data
+    }
+
+    pub fn actions(&self) -> &ActionStore {
+        &self.actions
+    }
+
+    pub fn forms(&self) -> &FormStore {
+        &self.forms
+    }
+
+    pub fn initialize_forms(&mut self, forms: &[FormSpec]) -> bool {
+        let mut changed = false;
+        for form in forms {
+            for field in &form.fields {
+                if let Some(initial) = &field.initial {
+                    changed |= self
+                        .forms
+                        .set(form.id.clone(), field.id.clone(), initial.clone());
+                }
+            }
+        }
+        if changed {
+            self.render_dirty = true;
+        }
+        changed
+    }
+
+    pub fn set_form_value(
+        &mut self,
+        form_id: impl Into<String>,
+        field_id: impl Into<String>,
+        value: crate::dsl::Value,
+    ) -> bool {
+        let changed = self.forms.set(form_id, field_id, value);
+        if changed {
+            self.render_dirty = true;
+        }
+        changed
+    }
+
+    pub fn set_data_snapshot(
+        &mut self,
+        source_id: impl Into<String>,
+        snapshot: DataSnapshot,
+    ) -> bool {
+        let changed = self.data.set(source_id, snapshot);
+        if changed {
+            self.render_dirty = true;
+        }
+        changed
+    }
+
+    pub fn set_action_snapshot(
+        &mut self,
+        action_id: impl Into<String>,
+        snapshot: ActionSnapshot,
+    ) -> bool {
+        let changed = self.actions.set(action_id, snapshot);
+        if changed {
+            self.render_dirty = true;
+        }
+        changed
     }
 
     pub fn set_scroll_offset(&mut self, component_id: ComponentId, offset: u16) -> bool {
@@ -277,6 +348,57 @@ mod tests {
         assert_eq!(state.scroll_offset(&id("list")), 3);
         assert!(state.is_component_dirty(&id("list")));
         assert!(state.is_render_dirty());
+    }
+
+    #[test]
+    fn setting_action_snapshot_marks_render_dirty() {
+        let mut state = StateStore::new();
+
+        assert!(state.set_action_snapshot("refresh", ActionSnapshot::loading()));
+        assert_eq!(
+            state
+                .actions()
+                .get("refresh")
+                .map(|snapshot| &snapshot.status),
+            Some(&crate::data::ActionStatus::Loading)
+        );
+        assert!(state.is_render_dirty());
+    }
+
+    #[test]
+    fn setting_form_value_marks_render_dirty() {
+        let mut state = StateStore::new();
+
+        assert!(state.set_form_value(
+            "incident",
+            "summary",
+            crate::dsl::Value::String("Disk full".into())
+        ));
+        assert_eq!(
+            state.forms().get("incident", "summary"),
+            Some(&crate::dsl::Value::String("Disk full".into()))
+        );
+        assert!(state.is_render_dirty());
+    }
+
+    #[test]
+    fn initializing_forms_applies_initial_values() {
+        let mut state = StateStore::new();
+        let forms = vec![crate::forms::FormSpec {
+            id: "incident".into(),
+            fields: vec![crate::forms::FormFieldSpec {
+                id: "summary".into(),
+                kind: crate::forms::FormFieldKind::Text,
+                initial: Some(crate::dsl::Value::String("Disk full".into())),
+                required: true,
+            }],
+        }];
+
+        assert!(state.initialize_forms(&forms));
+        assert_eq!(
+            state.forms().get("incident", "summary"),
+            Some(&crate::dsl::Value::String("Disk full".into()))
+        );
     }
 
     #[test]

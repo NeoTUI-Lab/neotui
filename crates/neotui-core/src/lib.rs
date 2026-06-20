@@ -2,9 +2,11 @@
 // Core abstractions for terminal UI framework
 
 pub mod component;
+pub mod data;
 pub mod diagnostics;
 pub mod dsl;
 pub mod event;
+pub mod forms;
 pub mod layout;
 pub mod registry;
 pub mod render;

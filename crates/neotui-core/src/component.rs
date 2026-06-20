@@ -84,6 +84,23 @@ impl EventContext {
     {
         self.commands.extend(commands);
     }
+
+    pub fn push_action(&mut self, action_id: impl Into<String>) {
+        self.push_command(Command::Action(action_id.into()));
+    }
+
+    pub fn push_form_value(
+        &mut self,
+        form_id: impl Into<String>,
+        field_id: impl Into<String>,
+        value: impl Into<String>,
+    ) {
+        self.push_command(Command::SetFormValue {
+            form_id: form_id.into(),
+            field_id: field_id.into(),
+            value: value.into(),
+        });
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]

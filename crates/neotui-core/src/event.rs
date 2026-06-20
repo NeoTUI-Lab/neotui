@@ -149,13 +149,20 @@ pub enum EventResult {
 pub enum Command {
     Quit,
     Help,
+    Action(String),
+    SetFormValue {
+        form_id: String,
+        field_id: String,
+        value: String,
+    },
 }
 
 impl EventResult {
     pub fn requests_render(&self) -> bool {
         matches!(
             self,
-            EventResult::RequestRender | EventResult::Command(Command::Help)
+            EventResult::RequestRender
+                | EventResult::Command(Command::Help | Command::SetFormValue { .. })
         )
     }
 
@@ -180,7 +187,25 @@ impl Command {
     }
 
     pub fn requests_render(&self) -> bool {
-        matches!(self, Command::Help)
+        matches!(self, Command::Help | Command::SetFormValue { .. })
+    }
+
+    pub fn action_id(&self) -> Option<&str> {
+        match self {
+            Command::Action(id) => Some(id),
+            _ => None,
+        }
+    }
+
+    pub fn form_value_update(&self) -> Option<(&str, &str, &str)> {
+        match self {
+            Command::SetFormValue {
+                form_id,
+                field_id,
+                value,
+            } => Some((form_id, field_id, value)),
+            _ => None,
+        }
     }
 }
 
@@ -229,8 +254,17 @@ mod tests {
 
     #[test]
     fn test_command_variants() {
-        let commands = vec![Command::Quit, Command::Help];
-        assert_eq!(commands.len(), 2);
+        let commands = vec![
+            Command::Quit,
+            Command::Help,
+            Command::Action("deploy".into()),
+            Command::SetFormValue {
+                form_id: "incident".into(),
+                field_id: "summary".into(),
+                value: "Disk full".into(),
+            },
+        ];
+        assert_eq!(commands.len(), 4);
     }
 
     #[test]
@@ -255,6 +289,16 @@ mod tests {
         assert!(!Command::Help.requests_quit());
         assert!(Command::Help.requests_render());
         assert!(!Command::Quit.requests_render());
+        assert_eq!(Command::Action("deploy".into()).action_id(), Some("deploy"));
+        assert_eq!(
+            Command::SetFormValue {
+                form_id: "incident".into(),
+                field_id: "summary".into(),
+                value: "Disk full".into(),
+            }
+            .form_value_update(),
+            Some(("incident", "summary", "Disk full"))
+        );
     }
 
     #[test]

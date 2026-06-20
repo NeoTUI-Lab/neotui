@@ -15,6 +15,7 @@ pub struct List {
     focused: bool,
     selected_index: usize,
     scroll_offset: usize,
+    on_select: Option<String>,
 }
 
 impl List {
@@ -35,6 +36,7 @@ impl List {
             focused: false,
             selected_index: 0,
             scroll_offset: 0,
+            on_select: None,
         }
     }
 
@@ -50,6 +52,11 @@ impl List {
 
     pub fn with_selected_style(mut self, style: Style) -> Self {
         self.selected_style = style;
+        self
+    }
+
+    pub fn with_on_select(mut self, action_id: impl Into<String>) -> Self {
+        self.on_select = Some(action_id.into());
         self
     }
 
@@ -146,7 +153,7 @@ impl Component for List {
         }
     }
 
-    fn on_event(&mut self, _ctx: &mut EventContext, event: &Event) -> EventResult {
+    fn on_event(&mut self, ctx: &mut EventContext, event: &Event) -> EventResult {
         self.clamp_selection();
         match event {
             Event::FocusGained(id) if *id == self.id => {
@@ -160,6 +167,15 @@ impl Component for List {
             Event::Key(key) if self.focused => {
                 let previous = self.selected_index;
                 match key.code {
+                    KeyCode::Enter => {
+                        if let Some(action_id) = &self.on_select {
+                            ctx.push_action(action_id.clone());
+                            return EventResult::Command(crate::event::Command::Action(
+                                action_id.clone(),
+                            ));
+                        }
+                        return EventResult::Consumed;
+                    }
                     KeyCode::Up => {
                         self.selected_index = self.selected_index.saturating_sub(1);
                     }
@@ -274,6 +290,30 @@ mod tests {
         list.render(&render_ctx, &mut frame);
         assert_eq!(frame.get(0, 0).map(|cell| cell.symbol), Some(' '));
         assert_eq!(frame.get(0, 1).map(|cell| cell.symbol), Some('>'));
+    }
+
+    #[test]
+    fn list_enter_emits_declared_select_action() {
+        let mut list = List::new("queue", ["one", "two"]).with_on_select("pick_item");
+        let mut ctx = EventContext::default();
+        let _ = list.on_event(&mut ctx, &Event::FocusGained(ComponentId("queue".into())));
+
+        let result = list.on_event(
+            &mut ctx,
+            &Event::Key(KeyEvent {
+                code: KeyCode::Enter,
+                modifiers: KeyModifiers::default(),
+            }),
+        );
+
+        assert_eq!(
+            result,
+            EventResult::Command(crate::event::Command::Action("pick_item".into()))
+        );
+        assert_eq!(
+            ctx.commands,
+            vec![crate::event::Command::Action("pick_item".into())]
+        );
     }
 
     #[test]

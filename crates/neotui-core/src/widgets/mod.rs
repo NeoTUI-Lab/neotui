@@ -17,6 +17,7 @@ pub mod sparkline;
 pub mod stack;
 pub mod table;
 pub mod text_block;
+pub mod text_input;
 
 pub use big_metric::BigMetric;
 pub use button::Button;
@@ -34,3 +35,4 @@ pub use sparkline::Sparkline;
 pub use stack::{Stack, StackAlign, StackDirection, StackJustify};
 pub use table::{Table, TableColumn};
 pub use text_block::TextBlock;
+pub use text_input::TextInput;
